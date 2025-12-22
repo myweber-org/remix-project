@@ -95,4 +95,96 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private defaultPreferences(): UserPreferences {
+    return {
+      theme: 'light',
+      language: 'en',
+      notificationsEnabled: true,
+      fontSize: 14
+    };
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed) ? parsed : this.defaultPreferences();
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences:', error);
+    }
+    return this.defaultPreferences();
+  }
+
+  private validatePreferences(prefs: any): prefs is UserPreferences {
+    return (
+      prefs &&
+      typeof prefs === 'object' &&
+      (prefs.theme === 'light' || prefs.theme === 'dark') &&
+      typeof prefs.language === 'string' &&
+      typeof prefs.notificationsEnabled === 'boolean' &&
+      typeof prefs.fontSize === 'number' &&
+      prefs.fontSize >= 10 &&
+      prefs.fontSize <= 24
+    );
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const newPreferences = { ...this.preferences, ...updates };
+    
+    if (this.validatePreferences(newPreferences)) {
+      this.preferences = newPreferences;
+      this.savePreferences();
+      return true;
+    }
+    return false;
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  resetToDefaults(): void {
+    this.preferences = this.defaultPreferences();
+    this.savePreferences();
+  }
+
+  getTheme(): 'light' | 'dark' {
+    return this.preferences.theme;
+  }
+
+  toggleTheme(): void {
+    this.updatePreferences({
+      theme: this.preferences.theme === 'light' ? 'dark' : 'light'
+    });
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
