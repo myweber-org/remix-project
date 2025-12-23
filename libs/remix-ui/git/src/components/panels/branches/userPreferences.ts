@@ -1,0 +1,53 @@
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
+    validated.theme = prefs.theme;
+  }
+
+  if (typeof prefs.notifications === 'boolean') {
+    validated.notifications = prefs.notifications;
+  }
+
+  if (prefs.language && typeof prefs.language === 'string') {
+    validated.language = prefs.language;
+  }
+
+  if (prefs.resultsPerPage && Number.isInteger(prefs.resultsPerPage) && prefs.resultsPerPage > 0) {
+    validated.resultsPerPage = prefs.resultsPerPage;
+  }
+
+  return validated;
+}
+
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validatedPrefs = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validatedPrefs));
+  console.log('Preferences saved:', validatedPrefs);
+}
+
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (stored) {
+    try {
+      return validatePreferences(JSON.parse(stored));
+    } catch {
+      return DEFAULT_PREFERENCES;
+    }
+  }
+  return DEFAULT_PREFERENCES;
+}
