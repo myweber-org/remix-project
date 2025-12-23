@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
+  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -22,28 +22,36 @@ class UserPreferencesManager {
     }
   }
 
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...updates };
-    this.validatePreferences();
+    const validated = this.validateUpdates(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
   }
 
-  private validatePreferences(): void {
-    if (this.preferences.fontSize < 12 || this.preferences.fontSize > 24) {
-      throw new Error('Font size must be between 12 and 24');
+  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const validated: Partial<UserPreferences> = {};
+
+    if (updates.theme !== undefined && ['light', 'dark', 'auto'].includes(updates.theme)) {
+      validated.theme = updates.theme;
     }
 
-    const validLanguages = ['en', 'es', 'fr', 'de'];
-    if (!validLanguages.includes(this.preferences.language)) {
-      throw new Error(`Language must be one of: ${validLanguages.join(', ')}`);
+    if (updates.language !== undefined && typeof updates.language === 'string') {
+      validated.language = updates.language;
     }
+
+    if (updates.notificationsEnabled !== undefined && typeof updates.notificationsEnabled === 'boolean') {
+      validated.notificationsEnabled = updates.notificationsEnabled;
+    }
+
+    if (updates.fontSize !== undefined && typeof updates.fontSize === 'number' && updates.fontSize >= 8 && updates.fontSize <= 32) {
+      validated.fontSize = updates.fontSize;
+    }
+
+    return validated;
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(this.preferences));
   }
 
   getPreferences(): Readonly<UserPreferences> {
@@ -51,16 +59,16 @@ class UserPreferencesManager {
   }
 
   resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = { ...defaults };
+    this.preferences = defaults;
     this.savePreferences();
   }
 }
 
 const defaultPrefs: UserPreferences = {
   theme: 'auto',
-  notifications: true,
   language: 'en',
-  fontSize: 16
+  notificationsEnabled: true,
+  fontSize: 14
 };
 
-export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+export const preferencesManager = new UserPreferencesManager(defaultPrefs);
