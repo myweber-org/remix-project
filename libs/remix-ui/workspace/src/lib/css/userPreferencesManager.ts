@@ -12,12 +12,18 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   language: 'en-US'
 };
 
-class UserPreferencesManager {
-  private readonly storageKey = 'user_preferences';
+const STORAGE_KEY = 'app_user_preferences';
 
-  loadPreferences(): UserPreferences {
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
     try {
-      const stored = localStorage.getItem(this.storageKey);
+      const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         return { ...DEFAULT_PREFERENCES, ...parsed };
@@ -28,30 +34,34 @@ class UserPreferencesManager {
     return { ...DEFAULT_PREFERENCES };
   }
 
-  savePreferences(prefs: Partial<UserPreferences>): boolean {
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.savePreferences();
+  }
+
+  private savePreferences(): void {
     try {
-      const current = this.loadPreferences();
-      const updated = { ...current, ...prefs };
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
-      return true;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
     } catch (error) {
       console.error('Failed to save user preferences:', error);
-      return false;
     }
   }
 
   resetToDefaults(): void {
-    try {
-      localStorage.removeItem(this.storageKey);
-    } catch (error) {
-      console.error('Failed to reset preferences:', error);
-    }
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.savePreferences();
   }
 
-  getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
-    const prefs = this.loadPreferences();
-    return prefs[key];
+  getTheme(): string {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return this.preferences.theme;
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();
