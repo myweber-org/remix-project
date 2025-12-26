@@ -1,3 +1,4 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
@@ -5,52 +6,32 @@ interface UserPreferences {
   fontSize: number;
 }
 
-class PreferenceError extends Error {
-  constructor(message: string, public field: string) {
-    super(message);
-    this.name = 'PreferenceError';
+class PreferenceValidator {
+  private static readonly MIN_FONT_SIZE = 12;
+  private static readonly MAX_FONT_SIZE = 24;
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'];
+
+  static validate(prefs: UserPreferences): string[] {
+    const errors: string[] = [];
+
+    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
+      errors.push(`Invalid theme: ${prefs.theme}. Must be 'light', 'dark', or 'auto'`);
+    }
+
+    if (typeof prefs.notifications !== 'boolean') {
+      errors.push('Notifications must be a boolean value');
+    }
+
+    if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+      errors.push(`Unsupported language: ${prefs.language}. Supported: ${PreferenceValidator.SUPPORTED_LANGUAGES.join(', ')}`);
+    }
+
+    if (prefs.fontSize < PreferenceValidator.MIN_FONT_SIZE || prefs.fontSize > PreferenceValidator.MAX_FONT_SIZE) {
+      errors.push(`Font size ${prefs.fontSize} out of range. Must be between ${PreferenceValidator.MIN_FONT_SIZE} and ${PreferenceValidator.MAX_FONT_SIZE}`);
+    }
+
+    return errors;
   }
 }
 
-function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const defaults: UserPreferences = {
-    theme: 'auto',
-    notifications: true,
-    language: 'en',
-    fontSize: 14
-  };
-
-  const validated: UserPreferences = { ...defaults, ...prefs };
-
-  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
-    throw new PreferenceError(`Invalid theme: ${validated.theme}`, 'theme');
-  }
-
-  if (typeof validated.notifications !== 'boolean') {
-    throw new PreferenceError('Notifications must be boolean', 'notifications');
-  }
-
-  if (!validated.language || validated.language.trim().length === 0) {
-    throw new PreferenceError('Language cannot be empty', 'language');
-  }
-
-  if (validated.fontSize < 8 || validated.fontSize > 72) {
-    throw new PreferenceError('Font size must be between 8 and 72', 'fontSize');
-  }
-
-  if (!Number.isInteger(validated.fontSize)) {
-    throw new PreferenceError('Font size must be an integer', 'fontSize');
-  }
-
-  return validated;
-}
-
-function formatValidationError(error: unknown): string {
-  if (error instanceof PreferenceError) {
-    return `Validation failed for field "${error.field}": ${error.message}`;
-  }
-  return 'Unknown validation error occurred';
-}
-
-export { validateUserPreferences, formatValidationError, PreferenceError };
-export type { UserPreferences };
+export { UserPreferences, PreferenceValidator };
