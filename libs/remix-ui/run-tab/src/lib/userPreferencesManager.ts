@@ -12,10 +12,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 14
 };
 
-const STORAGE_KEY = 'user_preferences';
-
 class UserPreferencesManager {
   private preferences: UserPreferences;
+  private readonly storageKey = 'user_preferences';
 
   constructor() {
     this.preferences = this.loadPreferences();
@@ -23,7 +22,7 @@ class UserPreferencesManager {
 
   private loadPreferences(): UserPreferences {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         return this.validatePreferences(parsed);
@@ -59,26 +58,17 @@ class UserPreferencesManager {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = {
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = {
       ...this.preferences,
       ...updates
     };
-
-    const validated = this.validatePreferences(newPreferences);
-    
-    if (JSON.stringify(validated) !== JSON.stringify(this.preferences)) {
-      this.preferences = validated;
-      this.savePreferences();
-      return true;
-    }
-    
-    return false;
+    this.savePreferences();
   }
 
   private savePreferences(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+      localStorage.setItem(this.storageKey, JSON.stringify(this.preferences));
     } catch (error) {
       console.error('Failed to save preferences:', error);
     }
@@ -89,14 +79,12 @@ class UserPreferencesManager {
     this.savePreferences();
   }
 
-  getTheme(): UserPreferences['theme'] {
-    return this.preferences.theme;
-  }
-
-  toggleNotifications(): boolean {
-    const updated = this.updatePreferences({ notifications: !this.preferences.notifications });
-    return this.preferences.notifications;
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return this.preferences.theme === 'dark';
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const userPreferences = new UserPreferencesManager();
