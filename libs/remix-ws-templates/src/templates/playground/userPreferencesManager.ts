@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -35,13 +35,14 @@ class UserPreferencesManager {
   }
 
   private validatePreferences(prefs: UserPreferences): boolean {
+    const validThemes = ['light', 'dark', 'auto'];
     return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
+      validThemes.includes(prefs.theme) &&
+      typeof prefs.notifications === 'boolean' &&
       typeof prefs.language === 'string' &&
       prefs.language.length >= 2 &&
-      typeof prefs.notificationsEnabled === 'boolean' &&
       prefs.fontSize >= 8 &&
-      prefs.fontSize <= 72
+      prefs.fontSize <= 32
     );
   }
 
@@ -62,11 +63,11 @@ class UserPreferencesManager {
   }
 }
 
-const defaultPreferences: UserPreferences = {
+const defaultPrefs: UserPreferences = {
   theme: 'auto',
+  notifications: true,
   language: 'en',
-  notificationsEnabled: true,
-  fontSize: 16
+  fontSize: 14
 };
 
-export const userPrefsManager = new UserPreferencesManager(defaultPreferences);
+export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
