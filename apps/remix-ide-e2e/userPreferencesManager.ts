@@ -1,86 +1,77 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  language: 'en-US',
-  notificationsEnabled: true,
-  fontSize: 14
-};
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor() {
-    this.preferences = this.loadPreferences();
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem('userPreferences');
-    if (!stored) return DEFAULT_PREFERENCES;
-
+  private loadPreferences(): UserPreferences | null {
     try {
-      const parsed = JSON.parse(stored);
-      return this.validatePreferences(parsed);
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return DEFAULT_PREFERENCES;
+      return null;
     }
-  }
-
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') {
-      return DEFAULT_PREFERENCES;
-    }
-
-    const prefs = data as Partial<UserPreferences>;
-    
-    return {
-      theme: this.isValidTheme(prefs.theme) ? prefs.theme : DEFAULT_PREFERENCES.theme,
-      language: typeof prefs.language === 'string' ? prefs.language : DEFAULT_PREFERENCES.language,
-      notificationsEnabled: typeof prefs.notificationsEnabled === 'boolean' 
-        ? prefs.notificationsEnabled 
-        : DEFAULT_PREFERENCES.notificationsEnabled,
-      fontSize: typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 32
-        ? prefs.fontSize
-        : DEFAULT_PREFERENCES.fontSize
-    };
-  }
-
-  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
-    return theme === 'light' || theme === 'dark' || theme === 'auto';
-  }
-
-  getPreferences(): UserPreferences {
-    return { ...this.preferences };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = {
-      ...this.preferences,
-      ...updates
-    };
+    const validated = this.validateUpdates(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
+  }
+
+  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const validated: Partial<UserPreferences> = {};
+
+    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
+      validated.theme = updates.theme;
+    }
+
+    if (typeof updates.notifications === 'boolean') {
+      validated.notifications = updates.notifications;
+    }
+
+    if (updates.language && /^[a-z]{2}(-[A-Z]{2})?$/.test(updates.language)) {
+      validated.language = updates.language;
+    }
+
+    if (updates.fontSize && updates.fontSize >= 12 && updates.fontSize <= 24) {
+      validated.fontSize = updates.fontSize;
+    }
+
+    return validated;
   }
 
   private savePreferences(): void {
-    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
   }
 
-  resetToDefaults(): void {
-    this.preferences = DEFAULT_PREFERENCES;
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
     this.savePreferences();
-  }
-
-  isDarkMode(): boolean {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return this.preferences.theme === 'dark';
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+const defaultPreferences: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 16
+};
+
+export const userPrefs = new UserPreferencesManager(defaultPreferences);
