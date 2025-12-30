@@ -12,53 +12,58 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 14
 };
 
-class PreferencesManager {
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 32;
+
+class UserPreferencesManager {
   private preferences: UserPreferences;
 
   constructor(initialPreferences?: Partial<UserPreferences>) {
     this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validatePreferences();
+    this.validateAndFixPreferences();
   }
 
-  private validatePreferences(): void {
-    if (this.preferences.fontSize < 8 || this.preferences.fontSize > 32) {
-      throw new Error('Font size must be between 8 and 32');
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
     }
 
-    const validThemes = ['light', 'dark', 'auto'];
-    if (!validThemes.includes(this.preferences.theme)) {
-      throw new Error(`Invalid theme. Must be one of: ${validThemes.join(', ')}`);
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (typeof this.preferences.fontSize !== 'number' || 
+        this.preferences.fontSize < MIN_FONT_SIZE || 
+        this.preferences.fontSize > MAX_FONT_SIZE) {
+      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
     }
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
-    const newPreferences = { ...this.preferences, ...updates };
-    const tempManager = new PreferencesManager(newPreferences);
-    this.preferences = tempManager.getPreferences();
-    return this.preferences;
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.validateAndFixPreferences();
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): UserPreferences {
+  resetToDefaults(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
-    return this.preferences;
   }
 
-  exportAsJSON(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
-
-  static importFromJSON(jsonString: string): PreferencesManager {
-    try {
-      const parsed = JSON.parse(jsonString);
-      return new PreferencesManager(parsed);
-    } catch {
-      throw new Error('Invalid JSON format for preferences');
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
+    return this.preferences.theme === 'dark';
   }
 }
 
-export { PreferencesManager, type UserPreferences };
+export { UserPreferencesManager, DEFAULT_PREFERENCES };
+export type { UserPreferences };
