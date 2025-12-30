@@ -1,120 +1,83 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  fontSize: number;
+  resultsPerPage: number;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  fontSize: 14
+  resultsPerPage: 20
 };
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 5;
+const MAX_RESULTS_PER_PAGE = 100;
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
 
-  constructor() {
-    this.preferences = this.loadPreferences();
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
   }
 
-  private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem('userPreferences');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        return this.validatePreferences(parsed);
-      } catch {
-        return { ...DEFAULT_PREFERENCES };
-      }
-    }
-    return { ...DEFAULT_PREFERENCES };
-  }
-
-  private validatePreferences(data: unknown): UserPreferences {
-    if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid preferences format');
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
     }
 
-    const prefs = data as Record<string, unknown>;
-    
-    return {
-      theme: this.validateTheme(prefs.theme),
-      notifications: this.validateBoolean(prefs.notifications),
-      language: this.validateString(prefs.language),
-      fontSize: this.validateFontSize(prefs.fontSize)
-    };
-  }
-
-  private validateTheme(value: unknown): UserPreferences['theme'] {
-    if (value === 'light' || value === 'dark' || value === 'auto') {
-      return value;
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
     }
-    return DEFAULT_PREFERENCES.theme;
-  }
 
-  private validateBoolean(value: unknown): boolean {
-    return typeof value === 'boolean' ? value : DEFAULT_PREFERENCES.notifications;
-  }
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
 
-  private validateString(value: unknown): string {
-    return typeof value === 'string' && value.length > 0 ? value : DEFAULT_PREFERENCES.language;
-  }
-
-  private validateFontSize(value: unknown): number {
-    const num = Number(value);
-    return !isNaN(num) && num >= 8 && num <= 24 ? num : DEFAULT_PREFERENCES.fontSize;
+    if (typeof this.preferences.resultsPerPage !== 'number' ||
+        this.preferences.resultsPerPage < MIN_RESULTS_PER_PAGE ||
+        this.preferences.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+      this.preferences.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+    }
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const validatedUpdates: Partial<UserPreferences> = {};
-
-    if (updates.theme !== undefined) {
-      validatedUpdates.theme = this.validateTheme(updates.theme);
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const previousPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    
+    try {
+      this.validateAndFixPreferences();
+      return true;
+    } catch (error) {
+      this.preferences = previousPreferences;
+      return false;
     }
-    if (updates.notifications !== undefined) {
-      validatedUpdates.notifications = this.validateBoolean(updates.notifications);
-    }
-    if (updates.language !== undefined) {
-      validatedUpdates.language = this.validateString(updates.language);
-    }
-    if (updates.fontSize !== undefined) {
-      validatedUpdates.fontSize = this.validateFontSize(updates.fontSize);
-    }
-
-    this.preferences = { ...this.preferences, ...validatedUpdates };
-    this.savePreferences();
-  }
-
-  private savePreferences(): void {
-    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
   }
 
   resetToDefaults(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
-    this.savePreferences();
   }
 
-  exportPreferences(): string {
+  exportAsJSON(): string {
     return JSON.stringify(this.preferences, null, 2);
   }
 
-  importPreferences(json: string): boolean {
+  static importFromJSON(jsonString: string): UserPreferencesManager | null {
     try {
-      const data = JSON.parse(json);
-      const validated = this.validatePreferences(data);
-      this.preferences = validated;
-      this.savePreferences();
-      return true;
+      const parsed = JSON.parse(jsonString);
+      return new UserPreferencesManager(parsed);
     } catch {
-      return false;
+      return null;
     }
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, DEFAULT_PREFERENCES, VALID_LANGUAGES };
