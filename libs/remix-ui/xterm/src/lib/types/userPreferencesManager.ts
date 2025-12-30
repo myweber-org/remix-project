@@ -5,63 +5,52 @@ interface UserPreferences {
   fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
-};
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 32;
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndNormalize();
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  private validateAndNormalize(): void {
-    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
-      this.preferences.theme = DEFAULT_PREFERENCES.theme;
-    }
-
-    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
-      this.preferences.language = DEFAULT_PREFERENCES.language;
-    }
-
-    if (typeof this.preferences.notifications !== 'boolean') {
-      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
-    }
-
-    if (typeof this.preferences.fontSize !== 'number' || 
-        this.preferences.fontSize < MIN_FONT_SIZE || 
-        this.preferences.fontSize > MAX_FONT_SIZE) {
-      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
     }
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
     this.preferences = { ...this.preferences, ...updates };
-    this.validateAndNormalize();
+    this.validatePreferences();
+    this.savePreferences();
   }
 
-  getPreferences(): UserPreferences {
+  private validatePreferences(): void {
+    if (this.preferences.fontSize < 12 || this.preferences.fontSize > 24) {
+      throw new Error('Font size must be between 12 and 24');
+    }
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      throw new Error('Invalid theme value');
+    }
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-  }
-
-  isDarkModePreferred(): boolean {
-    if (this.preferences.theme === 'dark') return true;
-    if (this.preferences.theme === 'light') return false;
-    
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = defaults;
+    this.savePreferences();
   }
 }
 
