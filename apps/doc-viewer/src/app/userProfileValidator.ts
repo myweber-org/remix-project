@@ -69,4 +69,55 @@ const testProfile = validator.createValidProfile(
 
 if (testProfile) {
   console.log('Valid profile created:', testProfile);
+}import { z } from 'zod';
+
+export const UserProfileSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
+  email: z.string().email(),
+  age: z.number().int().min(18).max(120).optional(),
+  preferences: z.object({
+    theme: z.enum(['light', 'dark', 'auto']),
+    notifications: z.boolean().default(true),
+  }),
+  lastActive: z.date().optional(),
+});
+
+export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+export class ProfileValidationError extends Error {
+  constructor(message: string, public readonly details: z.ZodIssue[]) {
+    super(message);
+    this.name = 'ProfileValidationError';
+  }
+}
+
+export function validateUserProfile(data: unknown): UserProfile {
+  const result = UserProfileSchema.safeParse(data);
+  
+  if (!result.success) {
+    const errorMessages = result.error.issues.map(issue => 
+      `${issue.path.join('.')}: ${issue.message}`
+    ).join('; ');
+    
+    throw new ProfileValidationError(
+      `Invalid profile data: ${errorMessages}`,
+      result.error.issues
+    );
+  }
+  
+  return result.data;
+}
+
+export function createDefaultProfile(username: string, email: string): UserProfile {
+  return {
+    id: crypto.randomUUID(),
+    username,
+    email,
+    preferences: {
+      theme: 'auto',
+      notifications: true,
+    },
+    lastActive: new Date(),
+  };
 }
