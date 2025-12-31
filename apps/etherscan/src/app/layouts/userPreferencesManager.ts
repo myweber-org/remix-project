@@ -168,4 +168,72 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 10;
+const MAX_RESULTS_PER_PAGE = 100;
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = this.validateAndMerge(
+      initialPreferences || {}, 
+      DEFAULT_PREFERENCES
+    );
+  }
+
+  updatePreferences(newPreferences: Partial<UserPreferences>): void {
+    this.preferences = this.validateAndMerge(newPreferences, this.preferences);
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+  }
+
+  private validateAndMerge(
+    newPrefs: Partial<UserPreferences>, 
+    basePrefs: UserPreferences
+  ): UserPreferences {
+    const merged = { ...basePrefs, ...newPrefs };
+
+    if (!['light', 'dark', 'auto'].includes(merged.theme)) {
+      merged.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (typeof merged.notifications !== 'boolean') {
+      merged.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (!VALID_LANGUAGES.includes(merged.language)) {
+      merged.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof merged.resultsPerPage !== 'number' || 
+        merged.resultsPerPage < MIN_RESULTS_PER_PAGE || 
+        merged.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+      merged.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+    }
+
+    return merged;
+  }
+}
+
+export { UserPreferencesManager, DEFAULT_PREFERENCES };
