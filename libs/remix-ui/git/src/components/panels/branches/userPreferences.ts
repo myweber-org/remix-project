@@ -1,53 +1,40 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  notificationsEnabled: boolean;
+  fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
+function validateUserPreferences(prefs: UserPreferences): boolean {
+  const validThemes = ['light', 'dark', 'auto'];
+  const minFontSize = 8;
+  const maxFontSize = 72;
 
-function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
-    validated.theme = prefs.theme;
+  if (!validThemes.includes(prefs.theme)) {
+    return false;
   }
 
-  if (typeof prefs.notifications === 'boolean') {
-    validated.notifications = prefs.notifications;
+  if (typeof prefs.language !== 'string' || prefs.language.trim().length === 0) {
+    return false;
   }
 
-  if (prefs.language && typeof prefs.language === 'string') {
-    validated.language = prefs.language;
+  if (typeof prefs.notificationsEnabled !== 'boolean') {
+    return false;
   }
 
-  if (prefs.resultsPerPage && Number.isInteger(prefs.resultsPerPage) && prefs.resultsPerPage > 0) {
-    validated.resultsPerPage = prefs.resultsPerPage;
+  if (typeof prefs.fontSize !== 'number' || 
+      prefs.fontSize < minFontSize || 
+      prefs.fontSize > maxFontSize) {
+    return false;
   }
 
-  return validated;
+  return true;
 }
 
-function savePreferences(prefs: Partial<UserPreferences>): void {
-  const validatedPrefs = validatePreferences(prefs);
-  localStorage.setItem('userPreferences', JSON.stringify(validatedPrefs));
-  console.log('Preferences saved:', validatedPrefs);
-}
-
-function loadPreferences(): UserPreferences {
-  const stored = localStorage.getItem('userPreferences');
-  if (stored) {
-    try {
-      return validatePreferences(JSON.parse(stored));
-    } catch {
-      return DEFAULT_PREFERENCES;
-    }
+function updateUserPreferences(prefs: UserPreferences): void {
+  if (!validateUserPreferences(prefs)) {
+    throw new Error('Invalid user preferences');
   }
-  return DEFAULT_PREFERENCES;
+  
+  console.log('User preferences updated:', prefs);
 }
