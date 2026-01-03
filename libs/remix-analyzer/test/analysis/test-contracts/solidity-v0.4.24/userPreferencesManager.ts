@@ -1,78 +1,84 @@
+import { z } from 'zod';
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  resultsPerPage: number;
-}
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  fontSize: z.number().min(8).max(32).default(14),
+  autoSave: z.boolean().default(true),
+  lastUpdated: z.date().optional()
+});
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 5;
-const MAX_RESULTS_PER_PAGE = 100;
+type UserPreferences = z.infer<typeof PreferenceSchema>;
 
 class UserPreferencesManager {
+  private static STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndFixPreferences();
+  constructor() {
+    this.preferences = this.loadPreferences();
   }
 
-  private validateAndFixPreferences(): void {
-    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
-      this.preferences.theme = DEFAULT_PREFERENCES.theme;
-    }
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (!stored) return PreferenceSchema.parse({});
 
-    if (typeof this.preferences.notifications !== 'boolean') {
-      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+      const parsed = JSON.parse(stored);
+      return PreferenceSchema.parse({
+        ...parsed,
+        lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined
+      });
+    } catch (error) {
+      console.warn('Failed to load preferences, using defaults:', error);
+      return PreferenceSchema.parse({});
     }
+  }
 
-    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
-      this.preferences.language = DEFAULT_PREFERENCES.language;
+  private savePreferences(): void {
+    try {
+      const data = {
+        ...this.preferences,
+        lastUpdated: new Date()
+      };
+      localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
     }
+  }
 
-    if (typeof this.preferences.resultsPerPage !== 'number' ||
-        this.preferences.resultsPerPage < MIN_RESULTS_PER_PAGE ||
-        this.preferences.resultsPerPage > MAX_RESULTS_PER_PAGE) {
-      this.preferences.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
-    }
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const validated = PreferenceSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
+    this.savePreferences();
+    return this.preferences;
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const previousPreferences = { ...this.preferences };
-    this.preferences = { ...this.preferences, ...updates };
-    this.validateAndFixPreferences();
-    
-    return JSON.stringify(previousPreferences) !== JSON.stringify(this.preferences);
-  }
-
-  resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+  resetToDefaults(): UserPreferences {
+    this.preferences = PreferenceSchema.parse({});
+    this.savePreferences();
+    return this.preferences;
   }
 
   exportPreferences(): string {
     return JSON.stringify(this.preferences, null, 2);
   }
 
-  static importPreferences(jsonString: string): UserPreferencesManager | null {
+  importPreferences(json: string): boolean {
     try {
-      const parsed = JSON.parse(jsonString);
-      return new UserPreferencesManager(parsed);
-    } catch {
-      return null;
+      const imported = JSON.parse(json);
+      this.preferences = PreferenceSchema.parse(imported);
+      this.savePreferences();
+      return true;
+    } catch (error) {
+      console.error('Invalid preferences format:', error);
+      return false;
     }
   }
 }
 
-export { UserPreferencesManager, DEFAULT_PREFERENCES, VALID_LANGUAGES };
+export { UserPreferencesManager, type UserPreferences };
