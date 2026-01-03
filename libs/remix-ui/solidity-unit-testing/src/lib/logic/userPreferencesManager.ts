@@ -1,19 +1,15 @@
+import { z } from 'zod';
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notificationsEnabled: boolean;
-  fontSize: number;
-  language: string;
-}
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+});
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notificationsEnabled: true,
-  fontSize: 16,
-  language: 'en-US'
-};
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-const STORAGE_KEY = 'user_preferences';
+const STORAGE_KEY = 'app_user_preferences';
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
@@ -25,39 +21,17 @@ class UserPreferencesManager {
   private loadPreferences(): UserPreferences {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return this.validatePreferences(parsed);
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences from storage:', error);
+      if (!stored) return UserPreferencesSchema.parse({});
+
+      const parsed = JSON.parse(stored);
+      return UserPreferencesSchema.parse(parsed);
+    } catch {
+      return UserPreferencesSchema.parse({});
     }
-    return { ...DEFAULT_PREFERENCES };
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') {
-      return { ...DEFAULT_PREFERENCES };
-    }
-
-    const preferences = data as Record<string, unknown>;
-    
-    return {
-      theme: this.isValidTheme(preferences.theme) ? preferences.theme as UserPreferences['theme'] : DEFAULT_PREFERENCES.theme,
-      notificationsEnabled: typeof preferences.notificationsEnabled === 'boolean' 
-        ? preferences.notificationsEnabled 
-        : DEFAULT_PREFERENCES.notificationsEnabled,
-      fontSize: typeof preferences.fontSize === 'number' 
-        ? Math.max(12, Math.min(24, preferences.fontSize))
-        : DEFAULT_PREFERENCES.fontSize,
-      language: typeof preferences.language === 'string' 
-        ? preferences.language 
-        : DEFAULT_PREFERENCES.language
-    };
-  }
-
-  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
-    return theme === 'light' || theme === 'dark' || theme === 'auto';
+  private savePreferences(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
   }
 
   getPreferences(): UserPreferences {
@@ -65,37 +39,19 @@ class UserPreferencesManager {
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = {
-      ...this.preferences,
-      ...updates
-    };
-    
-    if (updates.fontSize !== undefined) {
-      this.preferences.fontSize = Math.max(12, Math.min(24, updates.fontSize));
-    }
-
+    const validated = UserPreferencesSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
-  }
-
-  private savePreferences(): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
   }
 
   resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.preferences = UserPreferencesSchema.parse({});
     this.savePreferences();
   }
 
-  isDarkMode(): boolean {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return this.preferences.theme === 'dark';
+  getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
+    return this.preferences[key];
   }
 }
 
-export const userPreferencesManager = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();
