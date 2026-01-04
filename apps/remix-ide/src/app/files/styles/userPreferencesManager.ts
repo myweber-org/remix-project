@@ -79,3 +79,95 @@ class UserPreferencesManager {
 }
 
 export const userPreferencesManager = new UserPreferencesManager();
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  fontSize: 16,
+  notificationsEnabled: true,
+  language: 'en-US'
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
+  }
+
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (typeof this.preferences.fontSize !== 'number' || 
+        this.preferences.fontSize < 12 || 
+        this.preferences.fontSize > 24) {
+      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
+    }
+
+    if (typeof this.preferences.notificationsEnabled !== 'boolean') {
+      this.preferences.notificationsEnabled = DEFAULT_PREFERENCES.notificationsEnabled;
+    }
+
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const previousPreferences = { ...this.preferences };
+    
+    this.preferences = { ...this.preferences, ...updates };
+    this.validateAndFixPreferences();
+
+    return JSON.stringify(this.preferences) !== JSON.stringify(previousPreferences);
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+  }
+
+  exportAsJSON(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  static importFromJSON(jsonString: string): UserPreferencesManager | null {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return new UserPreferencesManager(parsed);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function applyThemeToDocument(preferences: UserPreferences): void {
+  const root = document.documentElement;
+  
+  if (preferences.theme === 'dark' || 
+      (preferences.theme === 'auto' && 
+       window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    root.classList.add('dark-theme');
+    root.classList.remove('light-theme');
+  } else {
+    root.classList.add('light-theme');
+    root.classList.remove('dark-theme');
+  }
+  
+  root.style.fontSize = `${preferences.fontSize}px`;
+}
+
+export { UserPreferencesManager, applyThemeToDocument, type UserPreferences };
