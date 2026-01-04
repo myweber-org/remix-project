@@ -77,4 +77,50 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private readonly STORAGE_KEY = 'user_preferences';
+  private defaultPreferences: UserPreferences = {
+    theme: 'light',
+    language: 'en',
+    notificationsEnabled: true,
+    fontSize: 14
+  };
+
+  getPreferences(): UserPreferences {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (stored) {
+      try {
+        return { ...this.defaultPreferences, ...JSON.parse(stored) };
+      } catch {
+        return this.defaultPreferences;
+      }
+    }
+    return this.defaultPreferences;
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const current = this.getPreferences();
+    const updated = { ...current, ...updates };
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  }
+
+  resetToDefaults(): UserPreferences {
+    localStorage.removeItem(this.STORAGE_KEY);
+    return this.defaultPreferences;
+  }
+
+  hasStoredPreferences(): boolean {
+    return localStorage.getItem(this.STORAGE_KEY) !== null;
+  }
+}
+
+export { UserPreferencesManager };
+export type { UserPreferences };
