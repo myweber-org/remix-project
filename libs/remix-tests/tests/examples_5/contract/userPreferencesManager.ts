@@ -9,35 +9,73 @@ interface UserPreferences {
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
-  language: 'en',
+  language: 'en-US',
   fontSize: 14
 };
 
-const VALID_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 32;
-
 class UserPreferencesManager {
+  private readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
   constructor() {
     this.preferences = this.loadPreferences();
   }
 
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      return { ...DEFAULT_PREFERENCES };
+    }
+
+    const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+    if ('theme' in data && ['light', 'dark', 'auto'].includes(data.theme as string)) {
+      validated.theme = data.theme as UserPreferences['theme'];
+    }
+
+    if ('notifications' in data && typeof data.notifications === 'boolean') {
+      validated.notifications = data.notifications;
+    }
+
+    if ('language' in data && typeof data.language === 'string') {
+      validated.language = data.language;
+    }
+
+    if ('fontSize' in data && typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 32) {
+      validated.fontSize = data.fontSize;
+    }
+
+    return validated;
+  }
+
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
+  updatePreferences(updates: Partial<UserPreferences>): void {
     const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
+    this.preferences = this.validatePreferences(newPreferences);
     this.savePreferences();
-    return true;
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 
   resetToDefaults(): void {
@@ -45,49 +83,13 @@ class UserPreferencesManager {
     this.savePreferences();
   }
 
-  private validatePreferences(prefs: UserPreferences): boolean {
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      return false;
-    }
-
-    if (typeof prefs.notifications !== 'boolean') {
-      return false;
-    }
-
-    if (!VALID_LANGUAGES.includes(prefs.language)) {
-      return false;
-    }
-
-    if (prefs.fontSize < MIN_FONT_SIZE || prefs.fontSize > MAX_FONT_SIZE) {
-      return false;
-    }
-
-    return true;
+  getTheme(): UserPreferences['theme'] {
+    return this.preferences.theme;
   }
 
-  private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem('userPreferences');
-      if (!stored) {
-        return { ...DEFAULT_PREFERENCES };
-      }
-
-      const parsed = JSON.parse(stored);
-      const loaded = { ...DEFAULT_PREFERENCES, ...parsed };
-      
-      return this.validatePreferences(loaded) ? loaded : { ...DEFAULT_PREFERENCES };
-    } catch {
-      return { ...DEFAULT_PREFERENCES };
-    }
-  }
-
-  private savePreferences(): void {
-    try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
+  toggleNotifications(): void {
+    this.updatePreferences({ notifications: !this.preferences.notifications });
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const preferencesManager = new UserPreferencesManager();
