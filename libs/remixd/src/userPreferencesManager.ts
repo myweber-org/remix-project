@@ -12,7 +12,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 14
 };
 
-class PreferencesManager {
+class UserPreferencesManager {
   private preferences: UserPreferences;
 
   constructor() {
@@ -37,7 +37,7 @@ class PreferencesManager {
       throw new Error('Invalid preferences data');
     }
 
-    const prefs = data as Record<string, unknown>;
+    const prefs = data as Partial<UserPreferences>;
     
     return {
       theme: this.validateTheme(prefs.theme),
@@ -64,7 +64,7 @@ class PreferencesManager {
 
   private validateNumber(value: unknown, defaultValue: number): number {
     const num = Number(value);
-    return !isNaN(num) && isFinite(num) ? num : defaultValue;
+    return !isNaN(num) && num > 0 ? num : defaultValue;
   }
 
   getPreferences(): UserPreferences {
@@ -79,17 +79,13 @@ class PreferencesManager {
     this.savePreferences();
   }
 
-  resetToDefaults(): void {
+  resetPreferences(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
   }
 
   private savePreferences(): void {
     localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-  }
-
-  getTheme(): UserPreferences['theme'] {
-    return this.preferences.theme;
   }
 
   isDarkMode(): boolean {
@@ -100,4 +96,4 @@ class PreferencesManager {
   }
 }
 
-export const preferencesManager = new PreferencesManager();
+export const preferencesManager = new UserPreferencesManager();
