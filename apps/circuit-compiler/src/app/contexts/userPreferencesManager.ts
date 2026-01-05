@@ -83,4 +83,79 @@ class UserPreferencesManager {
   }
 }
 
+export const preferencesManager = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    language: 'en-US',
+    notificationsEnabled: true,
+    fontSize: 14
+  };
+
+  private currentPreferences: UserPreferences;
+
+  constructor() {
+    this.currentPreferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        return { ...this.defaultPreferences, ...JSON.parse(stored) };
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...this.defaultPreferences };
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.currentPreferences)
+      );
+    } catch (error) {
+      console.warn('Failed to save preferences to storage:', error);
+    }
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.currentPreferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.currentPreferences = { ...this.currentPreferences, ...updates };
+    this.savePreferences();
+    this.dispatchChangeEvent();
+  }
+
+  resetToDefaults(): void {
+    this.currentPreferences = { ...this.defaultPreferences };
+    this.savePreferences();
+    this.dispatchChangeEvent();
+  }
+
+  private dispatchChangeEvent(): void {
+    window.dispatchEvent(new CustomEvent('preferencesChanged', {
+      detail: { preferences: this.getPreferences() }
+    }));
+  }
+
+  getEffectiveTheme(): 'light' | 'dark' {
+    if (this.currentPreferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return this.currentPreferences.theme;
+  }
+}
+
 export const preferencesManager = new UserPreferencesManager();
