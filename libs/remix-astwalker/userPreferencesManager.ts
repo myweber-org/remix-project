@@ -1,18 +1,15 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
-}
+import { z } from 'zod';
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  language: 'en-US',
-  notificationsEnabled: true,
-  fontSize: 14
-};
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().default('en-US'),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+});
 
-const STORAGE_KEY = 'user_preferences_v1';
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'app_user_preferences';
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
@@ -26,12 +23,12 @@ class UserPreferencesManager {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        return { ...DEFAULT_PREFERENCES, ...parsed };
+        return UserPreferencesSchema.parse(parsed);
       }
     } catch (error) {
       console.warn('Failed to load user preferences:', error);
     }
-    return { ...DEFAULT_PREFERENCES };
+    return UserPreferencesSchema.parse({});
   }
 
   private savePreferences(): void {
@@ -42,37 +39,24 @@ class UserPreferencesManager {
     }
   }
 
-  getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...updates };
+    const validated = UserPreferencesSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
   }
 
   resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.preferences = UserPreferencesSchema.parse({});
     this.savePreferences();
   }
 
-  getTheme(): UserPreferences['theme'] {
-    return this.preferences.theme;
-  }
-
-  setTheme(theme: UserPreferences['theme']): void {
-    this.updatePreferences({ theme });
-  }
-
-  isNotificationsEnabled(): boolean {
-    return this.preferences.notificationsEnabled;
-  }
-
-  toggleNotifications(): void {
-    this.updatePreferences({ 
-      notificationsEnabled: !this.preferences.notificationsEnabled 
-    });
+  validatePreferences(prefs: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(prefs);
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferencesManager = new UserPreferencesManager();
