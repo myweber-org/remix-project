@@ -13,29 +13,42 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
-    validated.theme = prefs.theme;
+  const validated = { ...DEFAULT_PREFERENCES, ...prefs };
+  
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    validated.theme = 'auto';
   }
-
-  if (typeof prefs.notifications === 'boolean') {
-    validated.notifications = prefs.notifications;
+  
+  if (typeof validated.notifications !== 'boolean') {
+    validated.notifications = true;
   }
-
-  if (prefs.language && typeof prefs.language === 'string') {
-    validated.language = prefs.language;
+  
+  if (!validated.language || typeof validated.language !== 'string') {
+    validated.language = 'en-US';
   }
-
-  if (prefs.resultsPerPage && Number.isInteger(prefs.resultsPerPage) && prefs.resultsPerPage > 0) {
-    validated.resultsPerPage = prefs.resultsPerPage;
+  
+  if (!Number.isInteger(validated.resultsPerPage) || validated.resultsPerPage < 5 || validated.resultsPerPage > 100) {
+    validated.resultsPerPage = 20;
   }
-
+  
   return validated;
 }
 
-function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
-  return validatePreferences({ ...existing, ...updates });
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validated = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
 }
 
-export { UserPreferences, DEFAULT_PREFERENCES, validatePreferences, mergePreferences };
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (!stored) return DEFAULT_PREFERENCES;
+  
+  try {
+    const parsed = JSON.parse(stored);
+    return validatePreferences(parsed);
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+export { UserPreferences, DEFAULT_PREFERENCES, validatePreferences, savePreferences, loadPreferences };
