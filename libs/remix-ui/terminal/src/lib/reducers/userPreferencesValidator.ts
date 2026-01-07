@@ -47,4 +47,35 @@ function mergePreferences(existing: UserPreferences, updates: Partial<UserPrefer
   return { ...existing, ...validatedUpdates };
 }
 
-export { UserPreferences, validatePreferences, mergePreferences, DEFAULT_PREFERENCES };
+export { UserPreferences, validatePreferences, mergePreferences, DEFAULT_PREFERENCES };import { z } from 'zod';
+
+const ThemeSchema = z.enum(['light', 'dark', 'system']);
+const NotificationPreferenceSchema = z.object({
+  email: z.boolean(),
+  push: z.boolean(),
+  inApp: z.boolean(),
+});
+
+export const UserPreferencesSchema = z.object({
+  userId: z.string().uuid(),
+  theme: ThemeSchema.default('system'),
+  notifications: NotificationPreferenceSchema.default({
+    email: true,
+    push: false,
+    inApp: true,
+  }),
+  language: z.string().min(2).max(5).default('en'),
+  timezone: z.string().default('UTC'),
+  autoSave: z.boolean().default(true),
+  fontSize: z.number().min(8).max(32).default(14),
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export function validatePreferences(input: unknown): UserPreferences {
+  return UserPreferencesSchema.parse(input);
+}
+
+export function safeValidatePreferences(input: unknown) {
+  return UserPreferencesSchema.safeParse(input);
+}
