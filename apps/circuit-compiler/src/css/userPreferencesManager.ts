@@ -1,49 +1,44 @@
 interface UserPreferences {
   theme: 'light' | 'dark';
-  language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
 }
 
 class UserPreferencesManager {
   private static readonly STORAGE_KEY = 'user_preferences';
-  private preferences: UserPreferences;
-  private listeners: Set<(prefs: UserPreferences) => void> = new Set();
+  private defaultPreferences: UserPreferences = {
+    theme: 'light',
+    fontSize: 14,
+    notificationsEnabled: true,
+    language: 'en'
+  };
 
-  constructor(defaultPreferences: UserPreferences) {
+  getPreferences(): UserPreferences {
     const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-    this.preferences = stored ? JSON.parse(stored) : defaultPreferences;
+    if (stored) {
+      try {
+        return { ...this.defaultPreferences, ...JSON.parse(stored) };
+      } catch {
+        return this.defaultPreferences;
+      }
+    }
+    return this.defaultPreferences;
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...updates };
-    localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(this.preferences));
-    this.notifyListeners();
+    const current = this.getPreferences();
+    const updated = { ...current, ...updates };
+    localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(updated));
   }
 
-  getPreferences(): UserPreferences {
-    return { ...this.preferences };
+  resetToDefaults(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
   }
 
-  addListener(listener: (prefs: UserPreferences) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.getPreferences()));
-  }
-
-  resetToDefaults(defaults: UserPreferences): void {
-    this.updatePreferences(defaults);
+  hasCustomPreferences(): boolean {
+    return localStorage.getItem(UserPreferencesManager.STORAGE_KEY) !== null;
   }
 }
 
-const defaultPrefs: UserPreferences = {
-  theme: 'light',
-  language: 'en',
-  notificationsEnabled: true,
-  fontSize: 14
-};
-
-export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+export const preferencesManager = new UserPreferencesManager();
