@@ -1,22 +1,18 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
-}
+import { z } from 'zod';
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
-};
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  fontSize: z.number().min(12).max(24).default(16),
+  autoSave: z.boolean().default(true),
+  saveInterval: z.number().min(1).max(60).default(5)
+});
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 32;
+type UserPreferences = z.infer<typeof PreferenceSchema>;
 
-class PreferencesManager {
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
   constructor() {
@@ -24,41 +20,23 @@ class PreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem('userPreferences');
-    if (!stored) return { ...DEFAULT_PREFERENCES };
-
     try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (!stored) return PreferenceSchema.parse({});
+
       const parsed = JSON.parse(stored);
-      return this.validatePreferences(parsed);
-    } catch {
-      return { ...DEFAULT_PREFERENCES };
+      return PreferenceSchema.parse(parsed);
+    } catch (error) {
+      console.warn('Failed to load preferences, using defaults:', error);
+      return PreferenceSchema.parse({});
     }
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    const prefs = { ...DEFAULT_PREFERENCES };
-
-    if (data && typeof data === 'object') {
-      const obj = data as Record<string, unknown>;
-
-      if (['light', 'dark', 'auto'].includes(obj.theme as string)) {
-        prefs.theme = obj.theme as UserPreferences['theme'];
-      }
-
-      if (typeof obj.notifications === 'boolean') {
-        prefs.notifications = obj.notifications;
-      }
-
-      if (typeof obj.language === 'string' && VALID_LANGUAGES.includes(obj.language)) {
-        prefs.language = obj.language;
-      }
-
-      if (typeof obj.fontSize === 'number') {
-        prefs.fontSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, obj.fontSize));
-      }
-    }
-
-    return prefs;
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
   }
 
   getPreferences(): UserPreferences {
@@ -66,26 +44,31 @@ class PreferencesManager {
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    const newPreferences = { ...this.preferences, ...updates };
-    this.preferences = this.validatePreferences(newPreferences);
+    const validated = PreferenceSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
   }
 
   resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.preferences = PreferenceSchema.parse({});
     this.savePreferences();
   }
 
-  private savePreferences(): void {
-    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    this.dispatchChangeEvent();
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
   }
 
-  private dispatchChangeEvent(): void {
-    window.dispatchEvent(new CustomEvent('preferencesChanged', {
-      detail: { preferences: this.preferences }
-    }));
+  importPreferences(jsonString: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonString);
+      this.preferences = PreferenceSchema.parse(parsed);
+      this.savePreferences();
+      return true;
+    } catch (error) {
+      console.error('Invalid preferences format:', error);
+      return false;
+    }
   }
 }
 
-export const preferencesManager = new PreferencesManager();
+export { UserPreferencesManager, type UserPreferences };
