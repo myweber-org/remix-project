@@ -1,12 +1,17 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
-}
+import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(25),
+});
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+const STORAGE_KEY = 'app_preferences';
 
 class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
   constructor() {
@@ -14,69 +19,42 @@ class UserPreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return this.getDefaultPreferences();
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return PreferenceSchema.parse(parsed);
       }
+    } catch (error) {
+      console.warn('Failed to load preferences:', error);
     }
-    return this.getDefaultPreferences();
-  }
-
-  private getDefaultPreferences(): UserPreferences {
-    return {
-      theme: 'auto',
-      notifications: true,
-      language: 'en',
-      fontSize: 14
-    };
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const validatedUpdates = this.validateUpdates(updates);
-    this.preferences = { ...this.preferences, ...validatedUpdates };
-    this.savePreferences();
-  }
-
-  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
-    const validated: Partial<UserPreferences> = {};
-
-    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
-      validated.theme = updates.theme;
-    }
-
-    if (typeof updates.notifications === 'boolean') {
-      validated.notifications = updates.notifications;
-    }
-
-    if (updates.language && typeof updates.language === 'string') {
-      validated.language = updates.language;
-    }
-
-    if (updates.fontSize && updates.fontSize >= 8 && updates.fontSize <= 24) {
-      validated.fontSize = updates.fontSize;
-    }
-
-    return validated;
+    return PreferenceSchema.parse({});
   }
 
   private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): void {
-    this.preferences = this.getDefaultPreferences();
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const validated = PreferenceSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
+    return this.getPreferences();
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = PreferenceSchema.parse({});
+    this.savePreferences();
+    return this.getPreferences();
+  }
+
+  validateExternalData(data: unknown): UserPreferences {
+    return PreferenceSchema.parse(data);
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const preferencesManager = new UserPreferencesManager();
