@@ -1,0 +1,57 @@
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 10
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const VALID_RESULTS_PER_PAGE = [5, 10, 25, 50];
+
+function validatePreferences(preferences: Partial<UserPreferences>): UserPreferences {
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (preferences.theme && ['light', 'dark', 'auto'].includes(preferences.theme)) {
+    validated.theme = preferences.theme;
+  }
+
+  if (typeof preferences.notifications === 'boolean') {
+    validated.notifications = preferences.notifications;
+  }
+
+  if (preferences.language && VALID_LANGUAGES.includes(preferences.language)) {
+    validated.language = preferences.language;
+  }
+
+  if (preferences.resultsPerPage && VALID_RESULTS_PER_PAGE.includes(preferences.resultsPerPage)) {
+    validated.resultsPerPage = preferences.resultsPerPage;
+  }
+
+  return validated;
+}
+
+function savePreferences(preferences: Partial<UserPreferences>): void {
+  const validated = validatePreferences(preferences);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
+}
+
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (stored) {
+    try {
+      return validatePreferences(JSON.parse(stored));
+    } catch {
+      return DEFAULT_PREFERENCES;
+    }
+  }
+  return DEFAULT_PREFERENCES;
+}
+
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
