@@ -1,20 +1,16 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
   fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
+  fontSize: 14,
+  notificationsEnabled: true,
+  language: 'en-US'
 };
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 32;
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
@@ -23,20 +19,49 @@ class UserPreferencesManager {
     this.preferences = this.loadPreferences();
   }
 
-  getPreferences(): UserPreferences {
-    return { ...this.preferences };
+  private loadPreferences(): UserPreferences {
+    const stored = localStorage.getItem('userPreferences');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      } catch {
+        return { ...DEFAULT_PREFERENCES };
+      }
+    }
+    return { ...DEFAULT_PREFERENCES };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
+  private validatePreferences(data: any): UserPreferences {
+    const validThemes = ['light', 'dark', 'auto'];
+    const theme = validThemes.includes(data.theme) ? data.theme : DEFAULT_PREFERENCES.theme;
     
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
+    const fontSize = typeof data.fontSize === 'number' && data.fontSize >= 10 && data.fontSize <= 24 
+      ? data.fontSize 
+      : DEFAULT_PREFERENCES.fontSize;
 
-    this.preferences = newPreferences;
+    const notificationsEnabled = typeof data.notificationsEnabled === 'boolean' 
+      ? data.notificationsEnabled 
+      : DEFAULT_PREFERENCES.notificationsEnabled;
+
+    const language = typeof data.language === 'string' && data.language.length === 5 
+      ? data.language 
+      : DEFAULT_PREFERENCES.language;
+
+    return { theme, fontSize, notificationsEnabled, language };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
     this.savePreferences();
-    return true;
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
   }
 
   resetToDefaults(): void {
@@ -44,46 +69,12 @@ class UserPreferencesManager {
     this.savePreferences();
   }
 
-  private validatePreferences(prefs: UserPreferences): boolean {
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      return false;
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-
-    if (typeof prefs.notifications !== 'boolean') {
-      return false;
-    }
-
-    if (!VALID_LANGUAGES.includes(prefs.language)) {
-      return false;
-    }
-
-    if (prefs.fontSize < MIN_FONT_SIZE || prefs.fontSize > MAX_FONT_SIZE) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private loadPreferences(): UserPreferences {
-    try {
-      const saved = localStorage.getItem('userPreferences');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return this.validatePreferences(parsed) ? parsed : { ...DEFAULT_PREFERENCES };
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences:', error);
-    }
-    return { ...DEFAULT_PREFERENCES };
-  }
-
-  private savePreferences(): void {
-    try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
+    return this.preferences.theme === 'dark';
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();
