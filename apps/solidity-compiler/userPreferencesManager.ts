@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -22,34 +22,28 @@ class UserPreferencesManager {
     }
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
-    this.savePreferences();
-    return true;
-  }
-
-  private validatePreferences(prefs: UserPreferences): boolean {
-    return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      typeof prefs.notificationsEnabled === 'boolean' &&
-      prefs.fontSize >= 12 &&
-      prefs.fontSize <= 24
-    );
-  }
-
   private savePreferences(): void {
     localStorage.setItem(
       UserPreferencesManager.STORAGE_KEY,
       JSON.stringify(this.preferences)
     );
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.validatePreferences();
+    this.savePreferences();
+  }
+
+  private validatePreferences(): void {
+    if (this.preferences.fontSize < 12 || this.preferences.fontSize > 24) {
+      throw new Error('Font size must be between 12 and 24');
+    }
+
+    const validLanguages = ['en', 'es', 'fr', 'de'];
+    if (!validLanguages.includes(this.preferences.language)) {
+      throw new Error(`Language must be one of: ${validLanguages.join(', ')}`);
+    }
   }
 
   getPreferences(): Readonly<UserPreferences> {
@@ -62,4 +56,11 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+const defaultPrefs: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en',
+  fontSize: 16
+};
+
+export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
