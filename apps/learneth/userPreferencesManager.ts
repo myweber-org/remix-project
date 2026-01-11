@@ -96,4 +96,103 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager };
-export type { UserPreferences };
+export type { UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences?: Partial<UserPreferences>) {
+    this.preferences = this.loadPreferences() || this.getDefaultPreferences();
+    
+    if (defaultPreferences) {
+      this.updatePreferences(defaultPreferences);
+    }
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      language: 'en-US',
+      notificationsEnabled: true,
+      fontSize: 16
+    };
+  }
+
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const validated = this.validateUpdates(updates);
+    
+    if (!validated.valid) {
+      console.warn('Invalid preferences update:', validated.errors);
+      return false;
+    }
+
+    this.preferences = { ...this.preferences, ...updates };
+    this.savePreferences();
+    return true;
+  }
+
+  private validateUpdates(updates: Partial<UserPreferences>): { 
+    valid: boolean; 
+    errors: string[] 
+  } {
+    const errors: string[] = [];
+
+    if (updates.theme !== undefined && 
+        !['light', 'dark', 'auto'].includes(updates.theme)) {
+      errors.push('Invalid theme value');
+    }
+
+    if (updates.fontSize !== undefined && 
+        (updates.fontSize < 8 || updates.fontSize > 32)) {
+      errors.push('Font size must be between 8 and 32');
+    }
+
+    if (updates.language !== undefined && 
+        !/^[a-z]{2}-[A-Z]{2}$/.test(updates.language)) {
+      errors.push('Language must be in format xx-XX');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = this.getDefaultPreferences();
+    this.savePreferences();
+  }
+
+  clearPreferences(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+    this.preferences = this.getDefaultPreferences();
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
