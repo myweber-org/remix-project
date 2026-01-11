@@ -29,21 +29,19 @@ class UserPreferencesManager {
   }
 
   private validatePreferences(): void {
-    if (this.preferences.fontSize < 12 || this.preferences.fontSize > 24) {
-      throw new Error('Font size must be between 12 and 24');
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = 'auto';
     }
-
-    const validLanguages = ['en', 'es', 'fr', 'de'];
-    if (!validLanguages.includes(this.preferences.language)) {
-      throw new Error(`Language must be one of: ${validLanguages.join(', ')}`);
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = true;
+    }
+    if (typeof this.preferences.fontSize !== 'number' || this.preferences.fontSize < 12 || this.preferences.fontSize > 24) {
+      this.preferences.fontSize = 16;
     }
   }
 
   private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
+    localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(this.preferences));
   }
 
   getPreferences(): Readonly<UserPreferences> {
@@ -51,16 +49,9 @@ class UserPreferencesManager {
   }
 
   resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
+    this.preferences = { ...defaults };
     this.savePreferences();
   }
 }
 
-const defaultPrefs: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en',
-  fontSize: 16
-};
-
-export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+export { UserPreferencesManager, type UserPreferences };
