@@ -1,23 +1,12 @@
-typescript
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
-  autoSaveInterval: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  language: 'en-US',
-  notificationsEnabled: true,
-  fontSize: 14,
-  autoSaveInterval: 30000
-};
-
-const STORAGE_KEY = 'user_preferences';
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
   constructor() {
@@ -25,72 +14,59 @@ class UserPreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return this.validateAndMerge(parsed);
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return this.getDefaultPreferences();
       }
-    } catch (error) {
-      console.warn('Failed to load preferences from storage:', error);
     }
-    return { ...DEFAULT_PREFERENCES };
+    return this.getDefaultPreferences();
   }
 
-  private validateAndMerge(partial: Partial<UserPreferences>): UserPreferences {
-    const merged = { ...DEFAULT_PREFERENCES, ...partial };
-    
-    if (!['light', 'dark', 'auto'].includes(merged.theme)) {
-      merged.theme = DEFAULT_PREFERENCES.theme;
-    }
-    
-    if (typeof merged.language !== 'string' || merged.language.length < 2) {
-      merged.language = DEFAULT_PREFERENCES.language;
-    }
-    
-    if (typeof merged.notificationsEnabled !== 'boolean') {
-      merged.notificationsEnabled = DEFAULT_PREFERENCES.notificationsEnabled;
-    }
-    
-    if (typeof merged.fontSize !== 'number' || merged.fontSize < 8 || merged.fontSize > 72) {
-      merged.fontSize = DEFAULT_PREFERENCES.fontSize;
-    }
-    
-    if (typeof merged.autoSaveInterval !== 'number' || merged.autoSaveInterval < 1000) {
-      merged.autoSaveInterval = DEFAULT_PREFERENCES.autoSaveInterval;
-    }
-    
-    return merged;
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 14
+    };
   }
 
-  getPreferences(): UserPreferences {
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.validatePreferences();
+    this.savePreferences();
+  }
+
+  private validatePreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = 'auto';
+    }
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = true;
+    }
+    if (typeof this.preferences.language !== 'string' || this.preferences.language.length !== 2) {
+      this.preferences.language = 'en';
+    }
+    if (typeof this.preferences.fontSize !== 'number' || this.preferences.fontSize < 8 || this.preferences.fontSize > 72) {
+      this.preferences.fontSize = 14;
+    }
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(this.preferences));
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    try {
-      const newPreferences = this.validateAndMerge({ ...this.preferences, ...updates });
-      this.preferences = newPreferences;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newPreferences));
-      return true;
-    } catch (error) {
-      console.error('Failed to update preferences:', error);
-      return false;
-    }
-  }
-
-  resetToDefaults(): boolean {
-    return this.updatePreferences(DEFAULT_PREFERENCES);
-  }
-
-  getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
-    return this.preferences[key];
-  }
-
-  setPreference<K extends keyof UserPreferences>(key: K, value: UserPreferences[K]): boolean {
-    return this.updatePreferences({ [key]: value } as Partial<UserPreferences>);
+  resetToDefaults(): void {
+    this.preferences = this.getDefaultPreferences();
+    this.savePreferences();
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
-```
+export { UserPreferencesManager, UserPreferences };
