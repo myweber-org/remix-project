@@ -1,15 +1,15 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  fontSize: number;
-  notificationsEnabled: boolean;
+  notifications: boolean;
   language: string;
+  fontSize: number;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
-  fontSize: 14,
-  notificationsEnabled: true,
-  language: 'en-US'
+  notifications: true,
+  language: 'en',
+  fontSize: 14
 };
 
 class UserPreferencesManager {
@@ -33,22 +33,29 @@ class UserPreferencesManager {
   }
 
   private validatePreferences(data: any): UserPreferences {
+    const validTheme = ['light', 'dark', 'auto'].includes(data.theme) 
+      ? data.theme 
+      : DEFAULT_PREFERENCES.theme;
+
+    const validFontSize = typeof data.fontSize === 'number' 
+      && data.fontSize >= 10 
+      && data.fontSize <= 24 
+      ? data.fontSize 
+      : DEFAULT_PREFERENCES.fontSize;
+
     return {
-      theme: ['light', 'dark', 'auto'].includes(data.theme) ? data.theme : DEFAULT_PREFERENCES.theme,
-      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 10 && data.fontSize <= 24 
-        ? data.fontSize 
-        : DEFAULT_PREFERENCES.fontSize,
-      notificationsEnabled: typeof data.notificationsEnabled === 'boolean' 
-        ? data.notificationsEnabled 
-        : DEFAULT_PREFERENCES.notificationsEnabled,
-      language: typeof data.language === 'string' && data.language.length === 5 
-        ? data.language 
-        : DEFAULT_PREFERENCES.language
+      theme: validTheme,
+      notifications: Boolean(data.notifications),
+      language: typeof data.language === 'string' ? data.language : DEFAULT_PREFERENCES.language,
+      fontSize: validFontSize
     };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...this.validatePreferences(updates) };
+    this.preferences = {
+      ...this.preferences,
+      ...updates
+    };
     this.savePreferences();
   }
 
@@ -63,13 +70,6 @@ class UserPreferencesManager {
   resetToDefaults(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
-  }
-
-  getTheme(): string {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return this.preferences.theme;
   }
 }
 
