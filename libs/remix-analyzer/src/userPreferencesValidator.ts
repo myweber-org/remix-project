@@ -6,77 +6,38 @@ interface UserPreferences {
   timezone: string;
 }
 
-class PreferenceValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PreferenceValidationError';
-  }
-}
-
-class UserPreferencesValidator {
-  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'];
+class PreferenceValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
   private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
 
-  static validate(preferences: Partial<UserPreferences>): UserPreferences {
-    const validated: UserPreferences = {
-      theme: this.validateTheme(preferences.theme),
-      notifications: this.validateNotifications(preferences.notifications),
-      language: this.validateLanguage(preferences.language),
-      timezone: this.validateTimezone(preferences.timezone)
-    };
+  static validate(prefs: UserPreferences): string[] {
+    const errors: string[] = [];
 
-    return validated;
+    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
+      errors.push(`Invalid theme selection: ${prefs.theme}`);
+    }
+
+    if (typeof prefs.notifications !== 'boolean') {
+      errors.push('Notifications must be a boolean value');
+    }
+
+    if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+      errors.push(`Unsupported language: ${prefs.language}`);
+    }
+
+    if (!PreferenceValidator.VALID_TIMEZONES.test(prefs.timezone)) {
+      errors.push(`Invalid timezone format: ${prefs.timezone}`);
+    }
+
+    return errors;
   }
 
-  private static validateTheme(theme?: string): UserPreferences['theme'] {
-    if (!theme) {
-      throw new PreferenceValidationError('Theme is required');
+  static validateAndThrow(prefs: UserPreferences): void {
+    const errors = this.validate(prefs);
+    if (errors.length > 0) {
+      throw new Error(`Validation failed: ${errors.join('; ')}`);
     }
-
-    if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') {
-      throw new PreferenceValidationError(
-        `Invalid theme: ${theme}. Must be 'light', 'dark', or 'auto'`
-      );
-    }
-
-    return theme as UserPreferences['theme'];
-  }
-
-  private static validateNotifications(notifications?: boolean): boolean {
-    if (notifications === undefined) {
-      throw new PreferenceValidationError('Notifications preference is required');
-    }
-
-    return notifications;
-  }
-
-  private static validateLanguage(language?: string): string {
-    if (!language) {
-      throw new PreferenceValidationError('Language is required');
-    }
-
-    if (!this.SUPPORTED_LANGUAGES.includes(language)) {
-      throw new PreferenceValidationError(
-        `Unsupported language: ${language}. Supported: ${this.SUPPORTED_LANGUAGES.join(', ')}`
-      );
-    }
-
-    return language;
-  }
-
-  private static validateTimezone(timezone?: string): string {
-    if (!timezone) {
-      throw new PreferenceValidationError('Timezone is required');
-    }
-
-    if (!this.VALID_TIMEZONES.test(timezone)) {
-      throw new PreferenceValidationError(
-        `Invalid timezone format: ${timezone}. Expected format: Area/Location`
-      );
-    }
-
-    return timezone;
   }
 }
 
-export { UserPreferencesValidator, PreferenceValidationError, UserPreferences };
+export { UserPreferences, PreferenceValidator };
