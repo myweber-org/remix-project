@@ -1,97 +1,66 @@
-
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  timezone: string;
+  fontSize: number;
+  autoSave: boolean;
 }
 
-class UserPreferencesValidator {
+class PreferencesValidator {
   private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
-  private static readonly VALID_TIMEZONE_REGEX = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+  private static readonly MIN_FONT_SIZE = 8;
+  private static readonly MAX_FONT_SIZE = 72;
 
-  static validate(preferences: UserPreferences): string[] {
+  static validate(preferences: Partial<UserPreferences>): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!['light', 'dark', 'auto'].includes(preferences.theme)) {
-      errors.push('Theme must be one of: light, dark, auto');
+    if (preferences.theme !== undefined && !['light', 'dark', 'auto'].includes(preferences.theme)) {
+      errors.push(`Invalid theme: ${preferences.theme}. Must be 'light', 'dark', or 'auto'.`);
     }
 
-    if (typeof preferences.notifications !== 'boolean') {
-      errors.push('Notifications must be a boolean value');
+    if (preferences.language !== undefined && !this.SUPPORTED_LANGUAGES.includes(preferences.language)) {
+      errors.push(`Unsupported language: ${preferences.language}. Supported: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
     }
 
-    if (!UserPreferencesValidator.SUPPORTED_LANGUAGES.includes(preferences.language)) {
-      errors.push(`Language must be one of: ${UserPreferencesValidator.SUPPORTED_LANGUAGES.join(', ')}`);
+    if (preferences.fontSize !== undefined) {
+      if (typeof preferences.fontSize !== 'number') {
+        errors.push(`Font size must be a number, received: ${typeof preferences.fontSize}`);
+      } else if (preferences.fontSize < this.MIN_FONT_SIZE || preferences.fontSize > this.MAX_FONT_SIZE) {
+        errors.push(`Font size ${preferences.fontSize} is out of range (${this.MIN_FONT_SIZE}-${this.MAX_FONT_SIZE})`);
+      }
     }
 
-    if (!UserPreferencesValidator.VALID_TIMEZONE_REGEX.test(preferences.timezone)) {
-      errors.push('Timezone must be in format: Area/Location (e.g., America/New_York)');
+    if (preferences.notifications !== undefined && typeof preferences.notifications !== 'boolean') {
+      errors.push(`Notifications must be boolean, received: ${typeof preferences.notifications}`);
     }
 
-    return errors;
-  }
-
-  static validateAndThrow(preferences: UserPreferences): void {
-    const errors = this.validate(preferences);
-    if (errors.length > 0) {
-      throw new Error(`Invalid preferences: ${errors.join('; ')}`);
-    }
-  }
-}
-
-export { UserPreferences, UserPreferencesValidator };
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  timezone: string;
-}
-
-class PreferenceValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PreferenceValidationError';
-  }
-}
-
-class UserPreferencesValidator {
-  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
-  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
-
-  static validate(preferences: Partial<UserPreferences>): UserPreferences {
-    const errors: string[] = [];
-
-    if (!preferences.theme || !['light', 'dark', 'auto'].includes(preferences.theme)) {
-      errors.push('Theme must be one of: light, dark, auto');
+    if (preferences.autoSave !== undefined && typeof preferences.autoSave !== 'boolean') {
+      errors.push(`Auto-save must be boolean, received: ${typeof preferences.autoSave}`);
     }
 
-    if (typeof preferences.notifications !== 'boolean') {
-      errors.push('Notifications must be a boolean value');
-    }
-
-    if (!preferences.language || !this.SUPPORTED_LANGUAGES.includes(preferences.language)) {
-      errors.push(`Language must be one of: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
-    }
-
-    if (!preferences.timezone || !this.VALID_TIMEZONES.test(preferences.timezone)) {
-      errors.push('Timezone must be in format: Area/Location (e.g., America/New_York)');
-    }
-
-    if (errors.length > 0) {
-      throw new PreferenceValidationError(`Validation failed:\n${errors.join('\n')}`);
-    }
-
-    return preferences as UserPreferences;
-  }
-
-  static sanitize(preferences: UserPreferences): UserPreferences {
     return {
-      ...preferences,
-      language: preferences.language.toLowerCase(),
-      timezone: preferences.timezone.replace(/\s+/g, '_')
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  static getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 14,
+      autoSave: true
     };
   }
 }
 
-export { UserPreferences, UserPreferencesValidator, PreferenceValidationError };
+function mergePreferences(current: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const validation = PreferencesValidator.validate(updates);
+  if (!validation.isValid) {
+    throw new Error(`Invalid preferences: ${validation.errors.join('; ')}`);
+  }
+  return { ...current, ...updates };
+}
+
+export { UserPreferences, PreferencesValidator, mergePreferences };
