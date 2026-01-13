@@ -57,4 +57,86 @@ class UserPreferencesManager {
   }
 }
 
+export const preferencesManager = new UserPreferencesManager();typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    resultsPerPage: 20
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const VALID_RESULTS_PER_PAGE = [10, 20, 50, 100];
+
+class UserPreferencesManager {
+    private preferences: UserPreferences;
+
+    constructor() {
+        this.preferences = this.loadPreferences();
+    }
+
+    private loadPreferences(): UserPreferences {
+        try {
+            const stored = localStorage.getItem('userPreferences');
+            if (!stored) return { ...DEFAULT_PREFERENCES };
+
+            const parsed = JSON.parse(stored);
+            return this.validateAndMerge(parsed);
+        } catch {
+            return { ...DEFAULT_PREFERENCES };
+        }
+    }
+
+    private validateAndMerge(partial: Partial<UserPreferences>): UserPreferences {
+        const merged = { ...DEFAULT_PREFERENCES, ...partial };
+
+        if (!['light', 'dark', 'auto'].includes(merged.theme)) {
+            merged.theme = DEFAULT_PREFERENCES.theme;
+        }
+
+        if (!VALID_LANGUAGES.includes(merged.language)) {
+            merged.language = DEFAULT_PREFERENCES.language;
+        }
+
+        if (!VALID_RESULTS_PER_PAGE.includes(merged.resultsPerPage)) {
+            merged.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+        }
+
+        return merged;
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): void {
+        this.preferences = this.validateAndMerge(updates);
+        this.savePreferences();
+    }
+
+    private savePreferences(): void {
+        localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    }
+
+    getPreferences(): Readonly<UserPreferences> {
+        return { ...this.preferences };
+    }
+
+    resetToDefaults(): void {
+        this.preferences = { ...DEFAULT_PREFERENCES };
+        this.savePreferences();
+    }
+
+    isDarkMode(): boolean {
+        if (this.preferences.theme === 'auto') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        return this.preferences.theme === 'dark';
+    }
+}
+
 export const preferencesManager = new UserPreferencesManager();
+```
