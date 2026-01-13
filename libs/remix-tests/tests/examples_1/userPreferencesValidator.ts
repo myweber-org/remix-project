@@ -66,4 +66,45 @@ const invalidPreferences: UserPreferences = {
 
 processUserPreferences(validPreferences);
 processUserPreferences(invalidPreferences);
-```
+```import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  fontSize: z.number().min(12).max(24).default(16),
+  language: z.string().length(2).default('en'),
+  autoSave: z.boolean().default(false),
+  twoFactorAuth: z.boolean().default(false)
+});
+
+export type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return PreferenceSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
+      }
+      throw new Error('Unexpected validation error');
+    }
+  }
+
+  static validatePartial(updates: Partial<unknown>): Partial<UserPreferences> {
+    try {
+      return PreferenceSchema.partial().parse(updates);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Invalid preference updates: ${errorMessages.join('; ')}`);
+      }
+      throw new Error('Unexpected validation error');
+    }
+  }
+}
