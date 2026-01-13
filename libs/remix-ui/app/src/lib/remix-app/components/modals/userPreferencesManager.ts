@@ -147,4 +147,58 @@ const defaultPreferences: UserPreferences = {
   fontSize: 16
 };
 
-export const preferencesManager = new UserPreferencesManager(defaultPreferences);
+export const preferencesManager = new UserPreferencesManager(defaultPreferences);interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private readonly storageKey = 'user_preferences';
+
+  getPreferences(): UserPreferences {
+    const stored = localStorage.getItem(this.storageKey);
+    if (!stored) return { ...DEFAULT_PREFERENCES };
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<UserPreferences>;
+      return { ...DEFAULT_PREFERENCES, ...parsed };
+    } catch {
+      return { ...DEFAULT_PREFERENCES };
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const current = this.getPreferences();
+    const merged = { ...current, ...updates };
+    localStorage.setItem(this.storageKey, JSON.stringify(merged));
+  }
+
+  resetToDefaults(): void {
+    localStorage.removeItem(this.storageKey);
+  }
+
+  isDarkMode(): boolean {
+    const prefs = this.getPreferences();
+    if (prefs.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return prefs.theme === 'dark';
+  }
+
+  applyTheme(): void {
+    const isDark = this.isDarkMode();
+    document.documentElement.classList.toggle('dark-theme', isDark);
+    document.documentElement.classList.toggle('light-theme', !isDark);
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
