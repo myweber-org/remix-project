@@ -63,4 +63,64 @@ function mergePreferences(existing: UserPreferences, updates: Partial<UserPrefer
   return { ...existing, ...updates };
 }
 
-export { UserPreferences, PreferenceValidator, mergePreferences };
+export { UserPreferences, PreferenceValidator, mergePreferences };import { z } from 'zod';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: {
+    email: boolean;
+    push: boolean;
+  };
+  language: string;
+  timezone: string;
+}
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.object({
+    email: z.boolean(),
+    push: z.boolean(),
+  }),
+  language: z.string().min(2),
+  timezone: z.string(),
+});
+
+export function validateUserPreferences(data: unknown): UserPreferences {
+  const result = UserPreferencesSchema.safeParse(data);
+  
+  if (!result.success) {
+    const errors = result.error.errors.map(err => 
+      `${err.path.join('.')}: ${err.message}`
+    ).join(', ');
+    
+    throw new Error(`Invalid user preferences: ${errors}`);
+  }
+  
+  return result.data;
+}
+
+export function createDefaultPreferences(): UserPreferences {
+  return {
+    theme: 'auto',
+    notifications: {
+      email: true,
+      push: false,
+    },
+    language: 'en',
+    timezone: 'UTC',
+  };
+}
+
+export function mergePreferences(
+  base: UserPreferences,
+  updates: Partial<UserPreferences>
+): UserPreferences {
+  return {
+    ...base,
+    ...updates,
+    notifications: {
+      ...base.notifications,
+      ...updates.notifications,
+    },
+  };
+}
