@@ -10,7 +10,7 @@ interface UserPayload {
 declare global {
   namespace Express {
     interface Request {
-      currentUser?: UserPayload;
+      user?: UserPayload;
     }
   }
 }
@@ -30,26 +30,31 @@ export const authenticateUser = (
   const token = authHeader.split(' ')[1];
   
   try {
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as UserPayload;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT secret not configured');
+    }
     
-    req.currentUser = payload;
+    const decoded = jwt.verify(token, secret) as UserPayload;
+    req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    if (error instanceof jwt.JsonWebTokenError) {
+      res.status(403).json({ error: 'Invalid or expired token' });
+    } else {
+      res.status(500).json({ error: 'Authentication failed' });
+    }
   }
 };
 
-export const requireRole = (allowedRoles: string[]) => {
+export const authorizeRole = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.currentUser) {
+    if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    if (!allowedRoles.includes(req.currentUser.role)) {
+    if (!allowedRoles.includes(req.user.role)) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
