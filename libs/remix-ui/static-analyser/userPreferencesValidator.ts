@@ -1,41 +1,45 @@
 import { z } from 'zod';
 
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('public'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
-}).strict();
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.boolean(),
+  language: z.string().min(2).max(5),
+  fontSize: z.number().min(12).max(24),
+  autoSave: z.boolean().default(true),
+  twoFactorAuth: z.boolean().optional()
+});
 
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+type UserPreferences = z.infer<typeof PreferenceSchema>;
 
-export function validateUserPreferences(input: unknown): UserPreferences {
+export function validatePreferences(input: unknown): UserPreferences {
   try {
-    return UserPreferencesSchema.parse(input);
+    return PreferenceSchema.parse(input);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const formattedErrors = error.errors.map(err => ({
-        path: err.path.join('.'),
-        message: err.message
-      }));
-      throw new Error(`Invalid preferences: ${JSON.stringify(formattedErrors)}`);
+      const errorMessages = error.errors.map(err => 
+        `${err.path.join('.')}: ${err.message}`
+      );
+      throw new Error(`Invalid preferences: ${errorMessages.join(', ')}`);
     }
     throw error;
   }
 }
 
-export function getDefaultPreferences(): UserPreferences {
-  return UserPreferencesSchema.parse({});
+export function createDefaultPreferences(): UserPreferences {
+  return {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    fontSize: 16,
+    autoSave: true
+  };
 }
 
-export function mergePreferences(existing: Partial<UserPreferences>, updates: Partial<UserPreferences>): UserPreferences {
-  const merged = { ...existing, ...updates };
-  return validateUserPreferences(merged);
+export function mergePreferences(
+  existing: Partial<UserPreferences>,
+  updates: Partial<UserPreferences>
+): UserPreferences {
+  const defaultPrefs = createDefaultPreferences();
+  const merged = { ...defaultPrefs, ...existing, ...updates };
+  return validatePreferences(merged);
 }
