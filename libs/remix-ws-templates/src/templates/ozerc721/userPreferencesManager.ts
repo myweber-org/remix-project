@@ -22,13 +22,6 @@ class UserPreferencesManager {
     }
   }
 
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
   updatePreferences(updates: Partial<UserPreferences>): boolean {
     const newPreferences = { ...this.preferences, ...updates };
     
@@ -47,8 +40,15 @@ class UserPreferencesManager {
       typeof prefs.language === 'string' &&
       prefs.language.length >= 2 &&
       typeof prefs.notificationsEnabled === 'boolean' &&
-      prefs.fontSize >= 8 &&
-      prefs.fontSize <= 32
+      prefs.fontSize >= 12 &&
+      prefs.fontSize <= 24
+    );
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
     );
   }
 
@@ -62,4 +62,12 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+const defaultUserPreferences: UserPreferences = {
+  theme: 'auto',
+  language: 'en',
+  notificationsEnabled: true,
+  fontSize: 16
+};
+
+export { UserPreferencesManager, defaultUserPreferences };
+export type { UserPreferences };
