@@ -1,24 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-interface UserPayload {
-  id: string;
-  email: string;
-  role: string;
+interface AuthenticatedRequest extends Request {
+  user?: { id: string; email: string };
 }
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPayload;
-    }
-  }
-}
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_key';
 
 export const authenticateToken = (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): void => {
@@ -26,31 +16,31 @@ export const authenticateToken = (
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    res.status(401).json({ error: 'Authentication token required' });
+    res.status(401).json({ error: 'Access token required' });
     return;
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
-    req.user = decoded;
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      res.status(403).json({ error: 'Invalid or expired token' });
+      return;
+    }
+
+    if (decoded && typeof decoded === 'object') {
+      req.user = {
+        id: decoded.userId,
+        email: decoded.email
+      };
+    }
+    
     next();
-  } catch (error) {
-    res.status(403).json({ error: 'Invalid or expired token' });
-  }
+  });
 };
 
-export const authorizeRole = (...allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'User not authenticated' });
-      return;
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
-      return;
-    }
-
-    next();
-  };
+export const generateAccessToken = (userId: string, email: string): string => {
+  return jwt.sign(
+    { userId, email },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
 };
