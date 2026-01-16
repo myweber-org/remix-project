@@ -136,4 +136,109 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
-```
+```interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (stored) {
+      try {
+        return this.validatePreferences(JSON.parse(stored));
+      } catch {
+        return this.getDefaultPreferences();
+      }
+    }
+    return this.getDefaultPreferences();
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 14
+    };
+  }
+
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid preferences data');
+    }
+
+    const prefs = data as Partial<UserPreferences>;
+    
+    const theme = prefs.theme;
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') {
+      throw new Error('Invalid theme value');
+    }
+
+    const notifications = prefs.notifications;
+    if (typeof notifications !== 'boolean') {
+      throw new Error('Invalid notifications value');
+    }
+
+    const language = prefs.language;
+    if (typeof language !== 'string' || language.length !== 2) {
+      throw new Error('Invalid language value');
+    }
+
+    const fontSize = prefs.fontSize;
+    if (typeof fontSize !== 'number' || fontSize < 8 || fontSize > 32) {
+      throw new Error('Invalid font size value');
+    }
+
+    return {
+      theme,
+      notifications,
+      language,
+      fontSize
+    };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const newPreferences = { ...this.preferences, ...updates };
+    this.preferences = this.validatePreferences(newPreferences);
+    this.savePreferences();
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = this.getDefaultPreferences();
+    this.savePreferences();
+  }
+
+  toggleTheme(): void {
+    const themes: UserPreferences['theme'][] = ['light', 'dark', 'auto'];
+    const currentIndex = themes.indexOf(this.preferences.theme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    this.updatePreferences({ theme: themes[nextIndex] });
+  }
+
+  toggleNotifications(): void {
+    this.updatePreferences({ notifications: !this.preferences.notifications });
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
