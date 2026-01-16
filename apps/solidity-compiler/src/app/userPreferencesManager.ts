@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
+  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -22,34 +22,6 @@ class UserPreferencesManager {
     }
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const validated = this.validateUpdates(updates);
-    this.preferences = { ...this.preferences, ...validated };
-    this.savePreferences();
-  }
-
-  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
-    const validated: Partial<UserPreferences> = {};
-
-    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
-      validated.theme = updates.theme;
-    }
-
-    if (typeof updates.notifications === 'boolean') {
-      validated.notifications = updates.notifications;
-    }
-
-    if (updates.language && /^[a-z]{2}(-[A-Z]{2})?$/.test(updates.language)) {
-      validated.language = updates.language;
-    }
-
-    if (updates.fontSize && updates.fontSize >= 12 && updates.fontSize <= 24) {
-      validated.fontSize = updates.fontSize;
-    }
-
-    return validated;
-  }
-
   private savePreferences(): void {
     localStorage.setItem(
       UserPreferencesManager.STORAGE_KEY,
@@ -57,14 +29,29 @@ class UserPreferencesManager {
     );
   }
 
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.validatePreferences(updates);
+    this.preferences = { ...this.preferences, ...updates };
+    this.savePreferences();
+  }
+
   getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
   resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = { ...defaults };
+    this.preferences = defaults;
     this.savePreferences();
+  }
+
+  private validatePreferences(prefs: Partial<UserPreferences>): void {
+    if (prefs.theme && !['light', 'dark', 'auto'].includes(prefs.theme)) {
+      throw new Error('Invalid theme value');
+    }
+    if (prefs.fontSize && (prefs.fontSize < 12 || prefs.fontSize > 24)) {
+      throw new Error('Font size must be between 12 and 24');
+    }
   }
 }
 
-export default UserPreferencesManager;
+export { UserPreferencesManager, UserPreferences };
