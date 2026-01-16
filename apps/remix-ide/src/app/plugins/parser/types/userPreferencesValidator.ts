@@ -1,52 +1,33 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
+import { z } from 'zod';
+
+const ThemePreferenceSchema = z.enum(['light', 'dark', 'system']);
+const NotificationSettingSchema = z.object({
+  email: z.boolean(),
+  push: z.boolean(),
+  frequency: z.enum(['immediate', 'daily', 'weekly']).optional(),
+});
+
+export const UserPreferencesSchema = z.object({
+  userId: z.string().uuid(),
+  theme: ThemePreferenceSchema.default('system'),
+  notifications: NotificationSettingSchema.default({
+    email: true,
+    push: false,
+  }),
+  language: z.string().min(2).max(5).default('en'),
+  timezone: z.string().optional(),
+  createdAt: z.date().default(() => new Date()),
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export function validateUserPreferences(input: unknown): UserPreferences {
+  return UserPreferencesSchema.parse(input);
 }
 
-class PreferenceError extends Error {
-  constructor(message: string, public field: string) {
-    super(message);
-    this.name = 'PreferenceError';
-  }
-}
-
-function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const errors: string[] = [];
-
-  if (!prefs.theme || !['light', 'dark', 'auto'].includes(prefs.theme)) {
-    errors.push('Theme must be light, dark, or auto');
-  }
-
-  if (typeof prefs.notifications !== 'boolean') {
-    errors.push('Notifications must be a boolean value');
-  }
-
-  if (!prefs.language || typeof prefs.language !== 'string' || prefs.language.length < 2) {
-    errors.push('Language must be a string with at least 2 characters');
-  }
-
-  if (typeof prefs.fontSize !== 'number' || prefs.fontSize < 8 || prefs.fontSize > 72) {
-    errors.push('Font size must be between 8 and 72');
-  }
-
-  if (errors.length > 0) {
-    throw new PreferenceError(errors.join('; '), 'validation');
-  }
-
-  return prefs as UserPreferences;
-}
-
-function saveUserPreferences(prefs: Partial<UserPreferences>): void {
-  try {
-    const validatedPrefs = validateUserPreferences(prefs);
-    console.log('Preferences saved:', validatedPrefs);
-  } catch (error) {
-    if (error instanceof PreferenceError) {
-      console.error(`Validation failed for ${error.field}:`, error.message);
-    } else {
-      console.error('Unexpected error:', error);
-    }
-  }
+export function sanitizeUserPreferencesUpdate(
+  partialUpdate: Partial<UserPreferences>
+): Partial<UserPreferences> {
+  const updateSchema = UserPreferencesSchema.partial();
+  return updateSchema.parse(partialUpdate);
 }
