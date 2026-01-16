@@ -58,4 +58,78 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { EventEmitter } from 'events';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+export class UserPreferencesManager extends EventEmitter {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor() {
+    super();
+    this.preferences = this.loadPreferences();
+  }
+
+  public getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  public updatePreferences(updates: Partial<UserPreferences>): void {
+    const oldPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    
+    this.savePreferences();
+    
+    if (this.hasChanges(oldPreferences, this.preferences)) {
+      this.emit('preferencesChanged', this.preferences, oldPreferences);
+    }
+  }
+
+  public resetToDefaults(): void {
+    this.updatePreferences(DEFAULT_PREFERENCES);
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...DEFAULT_PREFERENCES, ...parsed };
+      }
+    } catch (error) {
+      console.warn('Failed to load user preferences from localStorage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.warn('Failed to save user preferences to localStorage:', error);
+    }
+  }
+
+  private hasChanges(oldPrefs: UserPreferences, newPrefs: UserPreferences): boolean {
+    return Object.keys(newPrefs).some(key => {
+      const typedKey = key as keyof UserPreferences;
+      return oldPrefs[typedKey] !== newPrefs[typedKey];
+    });
+  }
+}
