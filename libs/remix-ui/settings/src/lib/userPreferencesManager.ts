@@ -12,6 +12,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 14
 };
 
+const STORAGE_KEY = 'user_preferences';
+
 class UserPreferencesManager {
   private preferences: UserPreferences;
 
@@ -20,20 +22,20 @@ class UserPreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem('userPreferences');
-    if (stored) {
-      try {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
         const parsed = JSON.parse(stored);
         return this.validatePreferences(parsed);
-      } catch {
-        return { ...DEFAULT_PREFERENCES };
       }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
     }
     return { ...DEFAULT_PREFERENCES };
   }
 
   private validatePreferences(data: unknown): UserPreferences {
-    if (typeof data !== 'object' || data === null) {
+    if (!data || typeof data !== 'object') {
       return { ...DEFAULT_PREFERENCES };
     }
 
@@ -58,31 +60,36 @@ class UserPreferencesManager {
     return validated;
   }
 
-  public getPreferences(): UserPreferences {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): void {
+  updatePreferences(updates: Partial<UserPreferences>): void {
     const newPreferences = { ...this.preferences, ...updates };
     this.preferences = this.validatePreferences(newPreferences);
     this.savePreferences();
   }
 
   private savePreferences(): void {
-    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 
-  public resetToDefaults(): void {
+  resetToDefaults(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
   }
 
-  public isDarkMode(): boolean {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return this.preferences.theme === 'dark';
+  getTheme(): UserPreferences['theme'] {
+    return this.preferences.theme;
+  }
+
+  toggleNotifications(): void {
+    this.updatePreferences({ notifications: !this.preferences.notifications });
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();
