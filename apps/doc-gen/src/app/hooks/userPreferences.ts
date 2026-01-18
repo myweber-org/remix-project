@@ -2,123 +2,35 @@ interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  fontSize: number;
+  timezone: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  fontSize: 14
+  timezone: 'UTC'
 };
-
-class PreferencesManager {
-  private storageKey = 'user_preferences';
-
-  validatePreferences(prefs: Partial<UserPreferences>): boolean {
-    if (prefs.theme && !['light', 'dark', 'auto'].includes(prefs.theme)) {
-      return false;
-    }
-    if (prefs.fontSize && (prefs.fontSize < 8 || prefs.fontSize > 32)) {
-      return false;
-    }
-    return true;
-  }
-
-  savePreferences(prefs: Partial<UserPreferences>): boolean {
-    if (!this.validatePreferences(prefs)) {
-      return false;
-    }
-
-    const current = this.loadPreferences();
-    const updated = { ...current, ...prefs };
-    
-    try {
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem(this.storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { ...DEFAULT_PREFERENCES, ...parsed };
-      }
-    } catch {
-      console.warn('Failed to load preferences from storage');
-    }
-    
-    return { ...DEFAULT_PREFERENCES };
-  }
-
-  resetToDefaults(): void {
-    localStorage.removeItem(this.storageKey);
-  }
-}
-
-export const preferencesManager = new PreferencesManager();interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  resultsPerPage: number;
-}
-
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
-const MAX_RESULTS_PER_PAGE = 100;
 
 function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const validated = { ...DEFAULT_PREFERENCES, ...prefs };
-  
-  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
-    validated.theme = 'auto';
-  }
-  
-  if (!VALID_LANGUAGES.includes(validated.language)) {
-    validated.language = 'en-US';
-  }
-  
-  if (typeof validated.notifications !== 'boolean') {
-    validated.notifications = true;
-  }
-  
-  if (typeof validated.resultsPerPage !== 'number' || 
-      validated.resultsPerPage < MIN_RESULTS_PER_PAGE || 
-      validated.resultsPerPage > MAX_RESULTS_PER_PAGE) {
-    validated.resultsPerPage = 20;
-  }
-  
-  return validated;
+  return {
+    theme: ['light', 'dark', 'auto'].includes(prefs.theme || '') 
+      ? prefs.theme as UserPreferences['theme'] 
+      : DEFAULT_PREFERENCES.theme,
+    notifications: typeof prefs.notifications === 'boolean' 
+      ? prefs.notifications 
+      : DEFAULT_PREFERENCES.notifications,
+    language: typeof prefs.language === 'string' && prefs.language.length >= 2
+      ? prefs.language
+      : DEFAULT_PREFERENCES.language,
+    timezone: typeof prefs.timezone === 'string' && Intl.supportedValuesOf('timeZone').includes(prefs.timezone)
+      ? prefs.timezone
+      : DEFAULT_PREFERENCES.timezone
+  };
 }
 
-function savePreferences(prefs: Partial<UserPreferences>): void {
-  const validated = validatePreferences(prefs);
-  localStorage.setItem('userPreferences', JSON.stringify(validated));
+function mergeWithDefaults(prefs: Partial<UserPreferences>): UserPreferences {
+  return { ...DEFAULT_PREFERENCES, ...validatePreferences(prefs) };
 }
 
-function loadPreferences(): UserPreferences {
-  const stored = localStorage.getItem('userPreferences');
-  if (!stored) {
-    return DEFAULT_PREFERENCES;
-  }
-  
-  try {
-    const parsed = JSON.parse(stored);
-    return validatePreferences(parsed);
-  } catch {
-    return DEFAULT_PREFERENCES;
-  }
-}
-
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+export { UserPreferences, validatePreferences, mergeWithDefaults };
