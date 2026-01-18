@@ -139,3 +139,93 @@ const defaultPrefs: UserPreferences = {
 };
 
 export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 10;
+const MAX_RESULTS_PER_PAGE = 100;
+
+class PreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = this.validateAndMerge(initialPreferences || {});
+  }
+
+  private validateAndMerge(partialPrefs: Partial<UserPreferences>): UserPreferences {
+    const merged = { ...DEFAULT_PREFERENCES, ...partialPrefs };
+
+    if (!['light', 'dark', 'auto'].includes(merged.theme)) {
+      merged.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (typeof merged.notifications !== 'boolean') {
+      merged.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (!VALID_LANGUAGES.includes(merged.language)) {
+      merged.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof merged.resultsPerPage !== 'number' || 
+        merged.resultsPerPage < MIN_RESULTS_PER_PAGE || 
+        merged.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+      merged.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+    }
+
+    return merged;
+  }
+
+  updatePreferences(newPreferences: Partial<UserPreferences>): UserPreferences {
+    this.preferences = this.validateAndMerge(newPreferences);
+    return this.getCurrentPreferences();
+  }
+
+  getCurrentPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    return this.getCurrentPreferences();
+  }
+
+  isDarkModePreferred(): boolean {
+    if (this.preferences.theme === 'dark') return true;
+    if (this.preferences.theme === 'light') return false;
+    
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+}
+
+function loadPreferencesFromStorage(): Partial<UserPreferences> {
+  try {
+    const stored = localStorage.getItem('userPreferences');
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePreferencesToStorage(preferences: UserPreferences): void {
+  try {
+    localStorage.setItem('userPreferences', JSON.stringify(preferences));
+  } catch (error) {
+    console.warn('Failed to save preferences to storage:', error);
+  }
+}
+
+export { PreferencesManager, loadPreferencesFromStorage, savePreferencesToStorage };
+export type { UserPreferences };
