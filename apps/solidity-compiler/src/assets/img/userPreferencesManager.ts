@@ -147,4 +147,76 @@ class UserPreferencesManager {
   }
 }
 
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+
+  static loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validateAndMerge(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load user preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  static savePreferences(preferences: Partial<UserPreferences>): void {
+    try {
+      const current = this.loadPreferences();
+      const merged = { ...current, ...preferences };
+      const validated = this.validateAndMerge(merged);
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validated));
+    } catch (error) {
+      console.error('Failed to save user preferences:', error);
+    }
+  }
+
+  private static validateAndMerge(data: unknown): UserPreferences {
+    const result = { ...DEFAULT_PREFERENCES };
+
+    if (data && typeof data === 'object') {
+      const obj = data as Record<string, unknown>;
+
+      if (obj.theme && ['light', 'dark', 'auto'].includes(obj.theme as string)) {
+        result.theme = obj.theme as UserPreferences['theme'];
+      }
+
+      if (obj.language && typeof obj.language === 'string') {
+        result.language = obj.language;
+      }
+
+      if (typeof obj.notificationsEnabled === 'boolean') {
+        result.notificationsEnabled = obj.notificationsEnabled;
+      }
+
+      if (typeof obj.fontSize === 'number' && obj.fontSize >= 8 && obj.fontSize <= 32) {
+        result.fontSize = obj.fontSize;
+      }
+    }
+
+    return result;
+  }
+
+  static resetToDefaults(): void {
+    localStorage.removeItem(this.STORAGE_KEY);
+  }
+}
+
 export { UserPreferencesManager, type UserPreferences };
