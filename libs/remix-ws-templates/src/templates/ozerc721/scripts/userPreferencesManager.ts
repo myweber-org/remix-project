@@ -14,12 +14,8 @@ class UserPreferencesManager {
   }
 
   private loadPreferences(): UserPreferences | null {
-    try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
   }
 
   private savePreferences(): void {
@@ -29,37 +25,33 @@ class UserPreferencesManager {
     );
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
-    this.savePreferences();
-    return true;
-  }
-
-  private validatePreferences(prefs: UserPreferences): boolean {
-    return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      typeof prefs.notificationsEnabled === 'boolean' &&
-      prefs.fontSize >= 12 &&
-      prefs.fontSize <= 24
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
     this.savePreferences();
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
+    this.savePreferences();
+  }
+
+  clearPreferences(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+    this.preferences = this.getDefaultPreferences();
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      language: 'en-US',
+      notificationsEnabled: true,
+      fontSize: 16
+    };
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export default UserPreferencesManager;
