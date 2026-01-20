@@ -148,4 +148,91 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    language: string;
+    notificationsEnabled: boolean;
+    fontSize: number;
+    autoSave: boolean;
+}
+
+class UserPreferencesManager {
+    private static readonly STORAGE_KEY = 'user_preferences';
+    private preferences: UserPreferences;
+
+    constructor(defaultPreferences: UserPreferences) {
+        this.preferences = this.loadPreferences() || defaultPreferences;
+    }
+
+    private loadPreferences(): UserPreferences | null {
+        try {
+            const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private savePreferences(): void {
+        localStorage.setItem(
+            UserPreferencesManager.STORAGE_KEY,
+            JSON.stringify(this.preferences)
+        );
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): boolean {
+        const validated = this.validateUpdates(updates);
+        if (!validated) return false;
+
+        this.preferences = { ...this.preferences, ...updates };
+        this.savePreferences();
+        return true;
+    }
+
+    private validateUpdates(updates: Partial<UserPreferences>): boolean {
+        if (updates.theme && !['light', 'dark', 'auto'].includes(updates.theme)) {
+            return false;
+        }
+        if (updates.fontSize && (updates.fontSize < 12 || updates.fontSize > 24)) {
+            return false;
+        }
+        if (updates.language && typeof updates.language !== 'string') {
+            return false;
+        }
+        return true;
+    }
+
+    getPreferences(): Readonly<UserPreferences> {
+        return { ...this.preferences };
+    }
+
+    resetToDefaults(defaults: UserPreferences): void {
+        this.preferences = defaults;
+        this.savePreferences();
+    }
+
+    exportPreferences(): string {
+        return JSON.stringify(this.preferences, null, 2);
+    }
+
+    importPreferences(jsonString: string): boolean {
+        try {
+            const parsed = JSON.parse(jsonString);
+            return this.updatePreferences(parsed);
+        } catch {
+            return false;
+        }
+    }
+}
+
+const defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    language: 'en-US',
+    notificationsEnabled: true,
+    fontSize: 16,
+    autoSave: true
+};
+
+export const preferencesManager = new UserPreferencesManager(defaultPreferences);
+```
