@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 interface UserPayload {
-  userId: string;
+  id: string;
   email: string;
   role: string;
 }
@@ -10,48 +10,44 @@ interface UserPayload {
 declare global {
   namespace Express {
     interface Request {
-      user?: UserPayload;
+      currentUser?: UserPayload;
     }
   }
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
 
-  if (!token) {
-    res.status(401).json({ error: 'Access token required' });
+export const authenticateUser = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Authentication token required' });
     return;
   }
 
-  try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT secret not configured');
-    }
+  const token = authHeader.split(' ')[1];
 
-    const decoded = jwt.verify(token, secret) as UserPayload;
-    req.user = decoded;
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as UserPayload;
+    req.currentUser = payload;
     next();
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ error: 'Token expired' });
-    } else if (error instanceof jwt.JsonWebTokenError) {
-      res.status(403).json({ error: 'Invalid token' });
-    } else {
-      res.status(500).json({ error: 'Authentication failed' });
-    }
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 
-export const authorizeRole = (...allowedRoles: string[]) => {
+export const requireRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+    if (!req.currentUser) {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.currentUser.role)) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
     }
