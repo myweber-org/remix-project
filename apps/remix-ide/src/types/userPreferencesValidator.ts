@@ -41,4 +41,53 @@ export function mergePreferences(
 ): UserPreferences {
   const merged = { ...existing, ...updates };
   return validateUserPreferences(merged);
+}import { z } from 'zod';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  refreshInterval: number;
+}
+
+export const userPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.boolean(),
+  language: z.string().min(2).max(5),
+  refreshInterval: z.number().int().min(30).max(3600)
+});
+
+export class PreferencesValidator {
+  static validate(preferences: unknown): UserPreferences {
+    try {
+      return userPreferencesSchema.parse(preferences) as UserPreferences;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
+      }
+      throw error;
+    }
+  }
+
+  static createDefault(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      refreshInterval: 300
+    };
+  }
+
+  static sanitize(preferences: Partial<UserPreferences>): UserPreferences {
+    const defaults = this.createDefault();
+    return {
+      theme: preferences.theme ?? defaults.theme,
+      notifications: preferences.notifications ?? defaults.notifications,
+      language: preferences.language ?? defaults.language,
+      refreshInterval: preferences.refreshInterval ?? defaults.refreshInterval
+    };
+  }
 }
