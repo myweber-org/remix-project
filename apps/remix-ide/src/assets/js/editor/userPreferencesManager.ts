@@ -1,88 +1,81 @@
-import { z } from 'zod';
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
 
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
-  }),
-  language: z.string().min(2).default('en'),
-  resultsPerPage: z.number().min(5).max(100).default(25),
-  timezone: z.string().optional()
-});
-
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14
+};
 
 class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences_v1';
   private preferences: UserPreferences;
 
   constructor() {
     this.preferences = this.loadPreferences();
   }
 
-  private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      if (!stored) return UserPreferencesSchema.parse({});
-      
-      const parsed = JSON.parse(stored);
-      return UserPreferencesSchema.parse(parsed);
-    } catch (error) {
-      console.warn('Failed to load preferences, using defaults:', error);
-      return UserPreferencesSchema.parse({});
-    }
-  }
-
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    const validated = UserPreferencesSchema.partial().parse(updates);
+    const validated = this.validatePreferences(updates);
     this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
   }
 
   resetToDefaults(): void {
-    this.preferences = UserPreferencesSchema.parse({});
+    this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
   }
 
-  exportPreferences(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
+  private validatePreferences(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const validated: Partial<UserPreferences> = {};
 
-  importPreferences(jsonString: string): boolean {
-    try {
-      const parsed = JSON.parse(jsonString);
-      this.preferences = UserPreferencesSchema.parse(parsed);
-      this.savePreferences();
-      return true;
-    } catch (error) {
-      console.error('Invalid preferences format:', error);
-      return false;
+    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
+      validated.theme = updates.theme;
     }
+
+    if (typeof updates.notifications === 'boolean') {
+      validated.notifications = updates.notifications;
+    }
+
+    if (updates.language && typeof updates.language === 'string') {
+      validated.language = updates.language;
+    }
+
+    if (updates.fontSize && typeof updates.fontSize === 'number' && updates.fontSize >= 8 && updates.fontSize <= 32) {
+      validated.fontSize = updates.fontSize;
+    }
+
+    return validated;
   }
 
-  hasCustomTimezone(): boolean {
-    return this.preferences.timezone !== undefined;
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem('userPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...DEFAULT_PREFERENCES, ...this.validatePreferences(parsed) };
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
   }
 
-  getNotificationChannels(): string[] {
-    const channels: string[] = [];
-    if (this.preferences.notifications.email) channels.push('email');
-    if (this.preferences.notifications.push) channels.push('push');
-    return channels;
+  private savePreferences(): void {
+    try {
+      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const preferencesManager = new UserPreferencesManager();
