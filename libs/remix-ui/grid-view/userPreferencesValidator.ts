@@ -1,83 +1,62 @@
 import { z } from 'zod';
 
-const UserPreferencesSchema = z.object({
+export const UserPreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
-}).strict();
+  notificationsEnabled: z.boolean().default(true),
+  itemsPerPage: z.number().int().min(5).max(100).default(20),
+  language: z.string().min(2).max(5).default('en'),
+  timezone: z.string().optional(),
+  emailFrequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+});
 
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-export function validateUserPreferences(input: unknown): UserPreferences {
-  try {
-    return UserPreferencesSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
-      throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const formattedErrors = error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }));
+        throw new ValidationError('Invalid preferences', formattedErrors);
+      }
+      throw error;
     }
-    throw error;
+  }
+
+  static validatePartial(input: Partial<unknown>): Partial<UserPreferences> {
+    return UserPreferencesSchema.partial().parse(input);
+  }
+
+  static getDefaultPreferences(): UserPreferences {
+    return UserPreferencesSchema.parse({});
   }
 }
 
-export function getDefaultPreferences(): UserPreferences {
-  return UserPreferencesSchema.parse({});
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly details: Array<{ field: string; message: string }>
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
 }
 
-export function mergePreferences(existing: Partial<UserPreferences>, updates: Partial<UserPreferences>): UserPreferences {
-  const current = UserPreferencesSchema.partial().parse(existing);
-  const changes = UserPreferencesSchema.partial().parse(updates);
+export function sanitizePreferences(prefs: UserPreferences): UserPreferences {
+  const sanitized = { ...prefs };
   
-  const merged = { ...current, ...changes };
-  return UserPreferencesSchema.parse(merged);
-}import { z } from 'zod';
-
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
-}).strict();
-
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-export function validateUserPreferences(input: unknown): UserPreferences {
-  try {
-    return UserPreferencesSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const errorMessages = error.errors.map(err => 
-        `${err.path.join('.')}: ${err.message}`
-      );
-      throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
-    }
-    throw error;
+  if (sanitized.itemsPerPage > 50) {
+    console.warn('Reducing itemsPerPage to maximum allowed value');
+    sanitized.itemsPerPage = 50;
   }
-}
-
-export function getDefaultPreferences(): UserPreferences {
-  return UserPreferencesSchema.parse({});
-}
-
-export function mergePreferences(
-  existing: Partial<UserPreferences>,
-  updates: Partial<UserPreferences>
-): UserPreferences {
-  const merged = { ...existing, ...updates };
-  return validateUserPreferences(merged);
+  
+  if (!sanitized.timezone) {
+    sanitized.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  
+  return sanitized;
 }
