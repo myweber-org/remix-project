@@ -1,56 +1,67 @@
+typescript
 interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    fontSize: number;
 }
 
-class PreferenceValidationError extends Error {
-  constructor(message: string, public field: keyof UserPreferences) {
-    super(message);
-    this.name = 'PreferenceValidationError';
-  }
+class PreferenceValidator {
+    private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+    private static readonly MIN_FONT_SIZE = 8;
+    private static readonly MAX_FONT_SIZE = 72;
+
+    static validate(prefs: Partial<UserPreferences>): string[] {
+        const errors: string[] = [];
+
+        if (prefs.theme !== undefined) {
+            if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
+                errors.push(`Invalid theme: ${prefs.theme}. Must be 'light', 'dark', or 'auto'.`);
+            }
+        }
+
+        if (prefs.language !== undefined) {
+            if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+                errors.push(`Unsupported language: ${prefs.language}. Supported: ${PreferenceValidator.SUPPORTED_LANGUAGES.join(', ')}`);
+            }
+        }
+
+        if (prefs.fontSize !== undefined) {
+            if (typeof prefs.fontSize !== 'number' || isNaN(prefs.fontSize)) {
+                errors.push('Font size must be a valid number.');
+            } else if (prefs.fontSize < PreferenceValidator.MIN_FONT_SIZE || prefs.fontSize > PreferenceValidator.MAX_FONT_SIZE) {
+                errors.push(`Font size must be between ${PreferenceValidator.MIN_FONT_SIZE} and ${PreferenceValidator.MAX_FONT_SIZE}.`);
+            }
+        }
+
+        if (prefs.notifications !== undefined && typeof prefs.notifications !== 'boolean') {
+            errors.push('Notifications preference must be a boolean value.');
+        }
+
+        return errors;
+    }
+
+    static validateAndThrow(prefs: Partial<UserPreferences>): void {
+        const errors = this.validate(prefs);
+        if (errors.length > 0) {
+            throw new Error(`Validation failed:\n${errors.join('\n')}`);
+        }
+    }
 }
 
-const validateUserPreferences = (prefs: Partial<UserPreferences>): UserPreferences => {
-  const defaults: UserPreferences = {
-    theme: 'auto',
-    notifications: true,
-    language: 'en',
-    fontSize: 14
-  };
+function updateUserPreferences(newPrefs: Partial<UserPreferences>): void {
+    try {
+        PreferenceValidator.validateAndThrow(newPrefs);
+        console.log('Preferences updated successfully:', newPrefs);
+    } catch (error) {
+        console.error('Failed to update preferences:', error.message);
+    }
+}
 
-  const validated: UserPreferences = { ...defaults, ...prefs };
+// Example usage
+const validPrefs = { theme: 'dark', fontSize: 14, language: 'en' };
+const invalidPrefs = { theme: 'purple', fontSize: 200, language: 'xx' };
 
-  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
-    throw new PreferenceValidationError(
-      'Theme must be one of: light, dark, auto',
-      'theme'
-    );
-  }
-
-  if (typeof validated.notifications !== 'boolean') {
-    throw new PreferenceValidationError(
-      'Notifications must be a boolean value',
-      'notifications'
-    );
-  }
-
-  if (!validated.language || validated.language.trim().length === 0) {
-    throw new PreferenceValidationError(
-      'Language must be a non-empty string',
-      'language'
-    );
-  }
-
-  if (validated.fontSize < 8 || validated.fontSize > 32) {
-    throw new PreferenceValidationError(
-      'Font size must be between 8 and 32',
-      'fontSize'
-    );
-  }
-
-  return validated;
-};
-
-export { validateUserPreferences, PreferenceValidationError, UserPreferences };
+updateUserPreferences(validPrefs);
+updateUserPreferences(invalidPrefs);
+```
