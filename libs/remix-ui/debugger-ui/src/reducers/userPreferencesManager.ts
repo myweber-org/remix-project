@@ -1,77 +1,76 @@
+typescript
 interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    resultsPerPage: number;
 }
 
-class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private preferences: UserPreferences;
-
-  constructor(defaultPreferences: UserPreferences) {
-    this.preferences = this.loadPreferences() || defaultPreferences;
-  }
-
-  private loadPreferences(): UserPreferences | null {
-    try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const validatedUpdates = this.validateUpdates(updates);
-    this.preferences = { ...this.preferences, ...validatedUpdates };
-    this.savePreferences();
-  }
-
-  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
-    const validated: Partial<UserPreferences> = {};
-
-    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
-      validated.theme = updates.theme;
-    }
-
-    if (updates.language && typeof updates.language === 'string') {
-      validated.language = updates.language;
-    }
-
-    if (typeof updates.notificationsEnabled === 'boolean') {
-      validated.notificationsEnabled = updates.notificationsEnabled;
-    }
-
-    if (updates.fontSize && updates.fontSize >= 12 && updates.fontSize <= 24) {
-      validated.fontSize = updates.fontSize;
-    }
-
-    return validated;
-  }
-
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
-  }
-
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = { ...defaults };
-    this.savePreferences();
-  }
-}
-
-const defaultPreferences: UserPreferences = {
-  theme: 'auto',
-  language: 'en',
-  notificationsEnabled: true,
-  fontSize: 16
+const DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    resultsPerPage: 20
 };
 
-export const preferencesManager = new UserPreferencesManager(defaultPreferences);
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 10;
+const MAX_RESULTS_PER_PAGE = 100;
+
+class UserPreferencesManager {
+    private preferences: UserPreferences;
+
+    constructor(initialPreferences?: Partial<UserPreferences>) {
+        this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+        this.validateAndSanitize();
+    }
+
+    private validateAndSanitize(): void {
+        if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+            this.preferences.theme = DEFAULT_PREFERENCES.theme;
+        }
+
+        if (typeof this.preferences.notifications !== 'boolean') {
+            this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+        }
+
+        if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+            this.preferences.language = DEFAULT_PREFERENCES.language;
+        }
+
+        if (typeof this.preferences.resultsPerPage !== 'number' || 
+            this.preferences.resultsPerPage < MIN_RESULTS_PER_PAGE || 
+            this.preferences.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+            this.preferences.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+        }
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): void {
+        this.preferences = { ...this.preferences, ...updates };
+        this.validateAndSanitize();
+    }
+
+    getPreferences(): Readonly<UserPreferences> {
+        return { ...this.preferences };
+    }
+
+    resetToDefaults(): void {
+        this.preferences = { ...DEFAULT_PREFERENCES };
+    }
+
+    exportAsJSON(): string {
+        return JSON.stringify(this.preferences);
+    }
+
+    static importFromJSON(jsonString: string): UserPreferencesManager {
+        try {
+            const parsed = JSON.parse(jsonString);
+            return new UserPreferencesManager(parsed);
+        } catch {
+            return new UserPreferencesManager();
+        }
+    }
+}
+
+export { UserPreferencesManager, type UserPreferences };
+```
