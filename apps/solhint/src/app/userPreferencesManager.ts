@@ -1,80 +1,94 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  fontSize: number;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  resultsPerPage: 20
+  fontSize: 14
 };
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
-const MAX_RESULTS_PER_PAGE = 100;
+const STORAGE_KEY = 'user_preferences';
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...this.validatePreferences(initialPreferences || {}) };
+  constructor() {
+    this.preferences = this.loadPreferences();
   }
 
-  private validatePreferences(prefs: Partial<UserPreferences>): Partial<UserPreferences> {
-    const validated: Partial<UserPreferences> = {};
-
-    if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
-      validated.theme = prefs.theme;
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
     }
-
-    if (typeof prefs.notifications === 'boolean') {
-      validated.notifications = prefs.notifications;
-    }
-
-    if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
-      validated.language = prefs.language;
-    }
-
-    if (typeof prefs.resultsPerPage === 'number') {
-      validated.resultsPerPage = Math.max(
-        MIN_RESULTS_PER_PAGE,
-        Math.min(MAX_RESULTS_PER_PAGE, prefs.resultsPerPage)
-      );
-    }
-
-    return validated;
+    return { ...DEFAULT_PREFERENCES };
   }
 
-  updatePreferences(newPreferences: Partial<UserPreferences>): UserPreferences {
-    const validated = this.validatePreferences(newPreferences);
-    this.preferences = { ...this.preferences, ...validated };
-    return this.getPreferences();
+  private validatePreferences(data: unknown): UserPreferences {
+    const prefs = { ...DEFAULT_PREFERENCES };
+
+    if (data && typeof data === 'object') {
+      const obj = data as Record<string, unknown>;
+
+      if (['light', 'dark', 'auto'].includes(obj.theme as string)) {
+        prefs.theme = obj.theme as UserPreferences['theme'];
+      }
+
+      if (typeof obj.notifications === 'boolean') {
+        prefs.notifications = obj.notifications;
+      }
+
+      if (typeof obj.language === 'string' && obj.language.length >= 2) {
+        prefs.language = obj.language;
+      }
+
+      if (typeof obj.fontSize === 'number' && obj.fontSize >= 8 && obj.fontSize <= 32) {
+        prefs.fontSize = obj.fontSize;
+      }
+    }
+
+    return prefs;
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): UserPreferences {
-    this.preferences = { ...DEFAULT_PREFERENCES };
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const newPreferences = { ...this.preferences, ...updates };
+    this.preferences = this.validatePreferences(newPreferences);
+    this.savePreferences();
     return this.getPreferences();
   }
 
-  exportAsJSON(): string {
-    return JSON.stringify(this.preferences, null, 2);
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 
-  static importFromJSON(jsonString: string): UserPreferencesManager {
-    try {
-      const parsed = JSON.parse(jsonString);
-      return new UserPreferencesManager(parsed);
-    } catch {
-      return new UserPreferencesManager();
-    }
+  resetToDefaults(): UserPreferences {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.savePreferences();
+    return this.getPreferences();
+  }
+
+  hasCustomPreferences(): boolean {
+    return JSON.stringify(this.preferences) !== JSON.stringify(DEFAULT_PREFERENCES);
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const userPreferences = new UserPreferencesManager();
