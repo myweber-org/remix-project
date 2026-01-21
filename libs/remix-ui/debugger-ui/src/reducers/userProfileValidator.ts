@@ -1,22 +1,21 @@
 import { z } from 'zod';
 
-const UserProfileSchema = z.object({
-  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/),
+const userProfileSchema = z.object({
+  username: z.string().min(3).max(20),
   email: z.string().email(),
-  age: z.number().int().min(18).max(120).optional(),
+  age: z.number().int().positive().optional(),
   preferences: z.object({
-    theme: z.enum(['light', 'dark', 'system']).default('system'),
+    theme: z.enum(['light', 'dark']).default('light'),
     notifications: z.boolean().default(true)
-  }).default({}),
-  createdAt: z.date().default(() => new Date())
+  }).default({})
 });
 
-type UserProfile = z.infer<typeof UserProfileSchema>;
+type UserProfile = z.infer<typeof userProfileSchema>;
 
 export function validateUserProfile(data: unknown): UserProfile {
-  return UserProfileSchema.parse(data);
+  return userProfileSchema.parse(data);
 }
 
 export function safeValidateUserProfile(data: unknown) {
-  return UserProfileSchema.safeParse(data);
+  return userProfileSchema.safeParse(data);
 }
