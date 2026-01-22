@@ -1,12 +1,15 @@
 import { z } from 'zod';
 
 const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'system']).default('system'),
-  notificationsEnabled: z.boolean().default(true),
-  emailFrequency: z.enum(['daily', 'weekly', 'monthly', 'never']).default('weekly'),
-  language: z.string().min(2).max(5).default('en'),
-  timezone: z.string().optional(),
-  autoSaveInterval: z.number().min(1).max(60).default(5)
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  resultsPerPage: z.number().min(5).max(100).default(25),
+  language: z.string().length(2).default('en'),
+  timezone: z.string().optional()
 });
 
 type UserPreferences = z.infer<typeof UserPreferencesSchema>;
@@ -16,14 +19,16 @@ export function validateUserPreferences(input: unknown): UserPreferences {
     return UserPreferencesSchema.parse(input);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation failed:', error.errors);
-      throw new Error('Invalid user preferences configuration');
+      const errorMessages = error.errors.map(err => 
+        `${err.path.join('.')}: ${err.message}`
+      );
+      throw new Error(`Validation failed: ${errorMessages.join('; ')}`);
     }
     throw error;
   }
 }
 
-export function getDefaultPreferences(): UserPreferences {
+export function createDefaultPreferences(): UserPreferences {
   return UserPreferencesSchema.parse({});
 }
 
