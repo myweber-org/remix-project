@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
 const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'system']).default('system'),
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
   notifications: z.object({
     email: z.boolean().default(true),
     push: z.boolean().default(false),
-    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
   }),
   privacy: z.object({
-    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
     searchIndexing: z.boolean().default(true)
   }),
   language: z.string().min(2).max(5).default('en')
-}).strict();
+});
 
 type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
@@ -21,24 +21,18 @@ export function validateUserPreferences(input: unknown): UserPreferences {
     return UserPreferencesSchema.parse(input);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const formattedErrors = error.errors.map(err => ({
-        path: err.path.join('.'),
-        message: err.message
-      }));
-      throw new Error(`Invalid preferences: ${JSON.stringify(formattedErrors)}`);
+      throw new Error(`Invalid preferences: ${error.errors.map(e => `${e.path}: ${e.message}`).join(', ')}`);
     }
     throw error;
   }
 }
 
-export function createDefaultPreferences(): UserPreferences {
+export function getDefaultPreferences(): UserPreferences {
   return UserPreferencesSchema.parse({});
 }
 
-export function mergePreferences(
-  existing: Partial<UserPreferences>,
-  updates: Partial<UserPreferences>
-): UserPreferences {
-  const merged = { ...existing, ...updates };
+export function mergePreferences(existing: Partial<UserPreferences>, updates: Partial<UserPreferences>): UserPreferences {
+  const current = UserPreferencesSchema.partial().parse(existing);
+  const merged = { ...current, ...updates };
   return validateUserPreferences(merged);
 }
