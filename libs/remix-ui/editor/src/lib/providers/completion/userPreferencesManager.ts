@@ -5,87 +5,89 @@ interface UserPreferences {
   fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
-};
-
-const STORAGE_KEY = 'user_preferences';
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor() {
-    this.preferences = this.loadPreferences();
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  private loadPreferences(): UserPreferences {
+  private loadPreferences(): UserPreferences | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return this.validatePreferences(parsed);
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences from storage:', error);
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
     }
-    return { ...DEFAULT_PREFERENCES };
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') {
-      return { ...DEFAULT_PREFERENCES };
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const validatedUpdates = this.validateUpdates(updates);
+    this.preferences = { ...this.preferences, ...validatedUpdates };
+    this.savePreferences();
+    this.dispatchChangeEvent();
+  }
+
+  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const validated: Partial<UserPreferences> = {};
+
+    if (updates.theme !== undefined) {
+      if (['light', 'dark', 'auto'].includes(updates.theme)) {
+        validated.theme = updates.theme;
+      }
     }
 
-    const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-    if ('theme' in data && ['light', 'dark', 'auto'].includes(data.theme as string)) {
-      validated.theme = data.theme as UserPreferences['theme'];
+    if (updates.notifications !== undefined) {
+      validated.notifications = Boolean(updates.notifications);
     }
 
-    if ('notifications' in data && typeof data.notifications === 'boolean') {
-      validated.notifications = data.notifications;
+    if (updates.language !== undefined) {
+      if (typeof updates.language === 'string' && updates.language.length >= 2) {
+        validated.language = updates.language;
+      }
     }
 
-    if ('language' in data && typeof data.language === 'string') {
-      validated.language = data.language;
-    }
-
-    if ('fontSize' in data && typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 32) {
-      validated.fontSize = data.fontSize;
+    if (updates.fontSize !== undefined) {
+      const size = Number(updates.fontSize);
+      if (!isNaN(size) && size >= 8 && size <= 32) {
+        validated.fontSize = size;
+      }
     }
 
     return validated;
   }
 
-  getPreferences(): UserPreferences {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const newPreferences = { ...this.preferences, ...updates };
-    this.preferences = this.validatePreferences(newPreferences);
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
     this.savePreferences();
+    this.dispatchChangeEvent();
   }
 
-  private savePreferences(): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
-  }
-
-  resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    this.savePreferences();
-  }
-
-  hasCustomPreferences(): boolean {
-    return JSON.stringify(this.preferences) !== JSON.stringify(DEFAULT_PREFERENCES);
+  private dispatchChangeEvent(): void {
+    window.dispatchEvent(new CustomEvent('preferencesChanged', {
+      detail: { preferences: this.getPreferences() }
+    }));
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+const defaultUserPreferences: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en',
+  fontSize: 14
+};
+
+export { UserPreferencesManager, defaultUserPreferences };
+export type { UserPreferences };
