@@ -86,3 +86,67 @@ export function validateUserPreferences(prefs: Partial<UserPreferences>): UserPr
 export function formatValidationResult(prefs: UserPreferences): string {
   return `Validated preferences: ${prefs.theme} theme, ${prefs.language} language, ${prefs.fontSize}px font, notifications ${prefs.notifications ? 'on' : 'off'}`;
 }
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+export function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const defaults: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    fontSize: 14
+  };
+
+  const validated: UserPreferences = { ...defaults, ...prefs };
+
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    throw new PreferenceValidationError(
+      `Invalid theme: ${validated.theme}. Must be 'light', 'dark', or 'auto'`
+    );
+  }
+
+  if (typeof validated.notifications !== 'boolean') {
+    throw new PreferenceValidationError(
+      `Notifications must be boolean, received: ${typeof validated.notifications}`
+    );
+  }
+
+  if (!validated.language || validated.language.trim().length === 0) {
+    throw new PreferenceValidationError('Language cannot be empty');
+  }
+
+  if (validated.fontSize < 8 || validated.fontSize > 72) {
+    throw new PreferenceValidationError(
+      `Font size ${validated.fontSize} out of range (8-72)`
+    );
+  }
+
+  if (!Number.isInteger(validated.fontSize)) {
+    throw new PreferenceValidationError('Font size must be an integer');
+  }
+
+  return validated;
+}
+
+export function parsePreferencesFromJSON(jsonString: string): UserPreferences {
+  try {
+    const parsed = JSON.parse(jsonString);
+    return validateUserPreferences(parsed);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new PreferenceValidationError('Invalid JSON format');
+    }
+    throw error;
+  }
+}
