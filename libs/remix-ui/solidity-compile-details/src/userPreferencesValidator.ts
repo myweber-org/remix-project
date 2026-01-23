@@ -1,68 +1,67 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  fontSize: number;
+  itemsPerPage: number;
 }
 
-class PreferenceError extends Error {
-  constructor(message: string, public field: string) {
+class PreferenceValidationError extends Error {
+  constructor(message: string, public field: keyof UserPreferences) {
     super(message);
-    this.name = 'PreferenceError';
+    this.name = 'PreferenceValidationError';
   }
 }
 
-function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const defaultPreferences: UserPreferences = {
+export function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const defaults: UserPreferences = {
     theme: 'auto',
     notifications: true,
     language: 'en',
-    fontSize: 14
+    itemsPerPage: 20
   };
 
-  const validated: UserPreferences = { ...defaultPreferences };
+  const validated: UserPreferences = { ...defaults, ...prefs };
 
-  if (prefs.theme !== undefined) {
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      throw new PreferenceError('Theme must be light, dark, or auto', 'theme');
-    }
-    validated.theme = prefs.theme;
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    throw new PreferenceValidationError('Theme must be light, dark, or auto', 'theme');
   }
 
-  if (prefs.notifications !== undefined) {
-    if (typeof prefs.notifications !== 'boolean') {
-      throw new PreferenceError('Notifications must be a boolean value', 'notifications');
-    }
-    validated.notifications = prefs.notifications;
+  if (typeof validated.notifications !== 'boolean') {
+    throw new PreferenceValidationError('Notifications must be a boolean', 'notifications');
   }
 
-  if (prefs.language !== undefined) {
-    if (typeof prefs.language !== 'string' || prefs.language.length < 2) {
-      throw new PreferenceError('Language must be a string with at least 2 characters', 'language');
-    }
-    validated.language = prefs.language;
+  if (!validated.language || validated.language.trim().length === 0) {
+    throw new PreferenceValidationError('Language cannot be empty', 'language');
   }
 
-  if (prefs.fontSize !== undefined) {
-    if (typeof prefs.fontSize !== 'number' || prefs.fontSize < 8 || prefs.fontSize > 72) {
-      throw new PreferenceError('Font size must be between 8 and 72', 'fontSize');
-    }
-    validated.fontSize = prefs.fontSize;
+  if (!Number.isInteger(validated.itemsPerPage) || validated.itemsPerPage < 1 || validated.itemsPerPage > 100) {
+    throw new PreferenceValidationError('Items per page must be between 1 and 100', 'itemsPerPage');
   }
 
   return validated;
 }
 
-function testValidation() {
-  try {
-    const validPrefs = validateUserPreferences({
-      theme: 'dark',
-      fontSize: 16
-    });
-    console.log('Valid preferences:', validPrefs);
-  } catch (error) {
-    if (error instanceof PreferenceError) {
-      console.error(`Validation failed for ${error.field}: ${error.message}`);
+export function createPreferencesStore() {
+  let currentPreferences: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    itemsPerPage: 20
+  };
+
+  return {
+    getPreferences: (): UserPreferences => ({ ...currentPreferences }),
+    
+    updatePreferences: (updates: Partial<UserPreferences>): UserPreferences => {
+      const newPreferences = validateUserPreferences({ ...currentPreferences, ...updates });
+      currentPreferences = newPreferences;
+      return { ...newPreferences };
+    },
+    
+    resetToDefaults: (): UserPreferences => {
+      currentPreferences = validateUserPreferences({});
+      return { ...currentPreferences };
     }
-  }
+  };
 }
