@@ -1,19 +1,18 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
-}
+import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notificationsEnabled: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(25),
+  autoSaveInterval: z.number().min(0).max(300).default(60)
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'user_preferences_v1';
 
 class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private static readonly DEFAULT_PREFERENCES: UserPreferences = {
-    theme: 'auto',
-    language: 'en',
-    notificationsEnabled: true,
-    fontSize: 14
-  };
-
   private preferences: UserPreferences;
 
   constructor() {
@@ -22,73 +21,45 @@ class UserPreferencesManager {
 
   private loadPreferences(): UserPreferences {
     try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        return this.validateAndMerge(parsed);
+        return UserPreferencesSchema.parse(parsed);
       }
     } catch (error) {
-      console.warn('Failed to load preferences from storage:', error);
+      console.warn('Failed to load preferences, using defaults:', error);
     }
-    return { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+    return UserPreferencesSchema.parse({});
   }
 
-  private validateAndMerge(partial: Partial<UserPreferences>): UserPreferences {
-    const merged = { ...UserPreferencesManager.DEFAULT_PREFERENCES, ...partial };
-    
-    if (!['light', 'dark', 'auto'].includes(merged.theme)) {
-      merged.theme = 'auto';
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
     }
-    
-    if (typeof merged.language !== 'string' || merged.language.length === 0) {
-      merged.language = 'en';
-    }
-    
-    if (typeof merged.notificationsEnabled !== 'boolean') {
-      merged.notificationsEnabled = true;
-    }
-    
-    if (typeof merged.fontSize !== 'number' || merged.fontSize < 8 || merged.fontSize > 32) {
-      merged.fontSize = 14;
-    }
-    
-    return merged;
   }
 
-  getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    try {
-      const newPreferences = this.validateAndMerge({ ...this.preferences, ...updates });
-      this.preferences = newPreferences;
-      localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(newPreferences));
-      return true;
-    } catch (error) {
-      console.error('Failed to update preferences:', error);
-      return false;
-    }
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const validated = UserPreferencesSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
+    this.savePreferences();
+    return this.getPreferences();
   }
 
-  resetToDefaults(): void {
-    this.preferences = { ...UserPreferencesManager.DEFAULT_PREFERENCES };
-    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+  resetToDefaults(): UserPreferences {
+    this.preferences = UserPreferencesSchema.parse({});
+    this.savePreferences();
+    return this.getPreferences();
   }
 
-  exportPreferences(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
-
-  importPreferences(jsonString: string): boolean {
-    try {
-      const parsed = JSON.parse(jsonString);
-      return this.updatePreferences(parsed);
-    } catch (error) {
-      console.error('Failed to import preferences:', error);
-      return false;
-    }
+  validateExternalData(data: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(data);
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const userPreferencesManager = new UserPreferencesManager();
