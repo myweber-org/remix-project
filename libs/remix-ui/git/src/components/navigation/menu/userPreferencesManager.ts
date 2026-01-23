@@ -17,8 +17,7 @@ class UserPreferencesManager {
     const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        return this.validatePreferences(parsed);
+        return this.validatePreferences(JSON.parse(stored));
       } catch {
         return this.getDefaultPreferences();
       }
@@ -30,28 +29,29 @@ class UserPreferencesManager {
     return {
       theme: 'auto',
       notifications: true,
-      language: 'en',
-      fontSize: 14
+      language: 'en-US',
+      fontSize: 16
     };
   }
 
   private validatePreferences(data: any): UserPreferences {
-    const defaults = this.getDefaultPreferences();
+    const validThemes = ['light', 'dark', 'auto'];
+    const theme = validThemes.includes(data.theme) ? data.theme : 'auto';
     
     return {
-      theme: ['light', 'dark', 'auto'].includes(data.theme) ? data.theme : defaults.theme,
-      notifications: typeof data.notifications === 'boolean' ? data.notifications : defaults.notifications,
-      language: typeof data.language === 'string' ? data.language : defaults.language,
-      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 10 && data.fontSize <= 24 
+      theme,
+      notifications: typeof data.notifications === 'boolean' ? data.notifications : true,
+      language: typeof data.language === 'string' ? data.language : 'en-US',
+      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 12 && data.fontSize <= 24 
         ? data.fontSize 
-        : defaults.fontSize
+        : 16
     };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): void {
+  updatePreferences(updates: Partial<UserPreferences>): void {
     this.preferences = {
       ...this.preferences,
-      ...updates
+      ...this.validatePreferences(updates)
     };
     this.savePreferences();
   }
@@ -63,16 +63,16 @@ class UserPreferencesManager {
     );
   }
 
-  public getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  public resetToDefaults(): void {
+  resetToDefaults(): void {
     this.preferences = this.getDefaultPreferences();
     this.savePreferences();
   }
 
-  public isDarkMode(): boolean {
+  isDarkMode(): boolean {
     if (this.preferences.theme === 'auto') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
@@ -80,4 +80,4 @@ class UserPreferencesManager {
   }
 }
 
-export default UserPreferencesManager;
+export { UserPreferencesManager, type UserPreferences };
