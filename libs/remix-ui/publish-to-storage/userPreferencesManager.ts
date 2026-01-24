@@ -33,38 +33,28 @@ class UserPreferencesManager {
   }
 
   private validatePreferences(data: unknown): UserPreferences {
-    if (typeof data !== 'object' || data === null) {
-      throw new Error('Invalid preferences data');
+    if (!data || typeof data !== 'object') {
+      return { ...DEFAULT_PREFERENCES };
     }
 
-    const prefs = data as Record<string, unknown>;
+    const preferences = data as Partial<UserPreferences>;
     
     return {
-      theme: this.validateTheme(prefs.theme),
-      notifications: this.validateBoolean(prefs.notifications),
-      language: this.validateString(prefs.language),
-      fontSize: this.validateFontSize(prefs.fontSize)
+      theme: this.isValidTheme(preferences.theme) ? preferences.theme : DEFAULT_PREFERENCES.theme,
+      notifications: typeof preferences.notifications === 'boolean' 
+        ? preferences.notifications 
+        : DEFAULT_PREFERENCES.notifications,
+      language: typeof preferences.language === 'string' 
+        ? preferences.language 
+        : DEFAULT_PREFERENCES.language,
+      fontSize: typeof preferences.fontSize === 'number' 
+        ? Math.max(8, Math.min(24, preferences.fontSize))
+        : DEFAULT_PREFERENCES.fontSize
     };
   }
 
-  private validateTheme(value: unknown): UserPreferences['theme'] {
-    if (value === 'light' || value === 'dark' || value === 'auto') {
-      return value;
-    }
-    return DEFAULT_PREFERENCES.theme;
-  }
-
-  private validateBoolean(value: unknown): boolean {
-    return typeof value === 'boolean' ? value : DEFAULT_PREFERENCES.notifications;
-  }
-
-  private validateString(value: unknown): string {
-    return typeof value === 'string' && value.length > 0 ? value : DEFAULT_PREFERENCES.language;
-  }
-
-  private validateFontSize(value: unknown): number {
-    const num = Number(value);
-    return !isNaN(num) && num >= 8 && num <= 32 ? num : DEFAULT_PREFERENCES.fontSize;
+  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
+    return theme === 'light' || theme === 'dark' || theme === 'auto';
   }
 
   getPreferences(): UserPreferences {
@@ -72,22 +62,10 @@ class UserPreferencesManager {
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    const validatedUpdates: Partial<UserPreferences> = {};
-
-    if (updates.theme !== undefined) {
-      validatedUpdates.theme = this.validateTheme(updates.theme);
-    }
-    if (updates.notifications !== undefined) {
-      validatedUpdates.notifications = this.validateBoolean(updates.notifications);
-    }
-    if (updates.language !== undefined) {
-      validatedUpdates.language = this.validateString(updates.language);
-    }
-    if (updates.fontSize !== undefined) {
-      validatedUpdates.fontSize = this.validateFontSize(updates.fontSize);
-    }
-
-    this.preferences = { ...this.preferences, ...validatedUpdates };
+    this.preferences = {
+      ...this.preferences,
+      ...updates
+    };
     this.savePreferences();
   }
 
