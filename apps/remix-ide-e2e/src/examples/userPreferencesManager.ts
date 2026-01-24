@@ -131,4 +131,72 @@ class PreferencesManager {
   }
 }
 
-export const preferencesManager = new PreferencesManager();
+export const preferencesManager = new PreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    language: 'en',
+    notificationsEnabled: true,
+    fontSize: 14
+  };
+
+  getPreferences(): UserPreferences {
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (!stored) {
+      return { ...this.defaultPreferences };
+    }
+
+    try {
+      const parsed = JSON.parse(stored);
+      return this.validateAndMerge(parsed);
+    } catch {
+      return { ...this.defaultPreferences };
+    }
+  }
+
+  savePreferences(prefs: Partial<UserPreferences>): void {
+    const current = this.getPreferences();
+    const merged = { ...current, ...prefs };
+    const validated = this.validateAndMerge(merged);
+    
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(validated)
+    );
+  }
+
+  resetToDefaults(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+  }
+
+  private validateAndMerge(data: any): UserPreferences {
+    const result = { ...this.defaultPreferences };
+
+    if (typeof data.theme === 'string' && ['light', 'dark', 'auto'].includes(data.theme)) {
+      result.theme = data.theme;
+    }
+
+    if (typeof data.language === 'string' && data.language.length === 2) {
+      result.language = data.language;
+    }
+
+    if (typeof data.notificationsEnabled === 'boolean') {
+      result.notificationsEnabled = data.notificationsEnabled;
+    }
+
+    if (typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 32) {
+      result.fontSize = data.fontSize;
+    }
+
+    return result;
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
