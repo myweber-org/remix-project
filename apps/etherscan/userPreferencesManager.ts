@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
+  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -22,6 +22,13 @@ class UserPreferencesManager {
     }
   }
 
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+
   updatePreferences(updates: Partial<UserPreferences>): void {
     const validated = this.validateUpdates(updates);
     this.preferences = { ...this.preferences, ...validated };
@@ -31,30 +38,31 @@ class UserPreferencesManager {
   private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
     const validated: Partial<UserPreferences> = {};
 
-    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
-      validated.theme = updates.theme;
+    if (updates.theme !== undefined) {
+      if (['light', 'dark', 'auto'].includes(updates.theme)) {
+        validated.theme = updates.theme;
+      }
     }
 
-    if (typeof updates.notifications === 'boolean') {
-      validated.notifications = updates.notifications;
+    if (updates.language !== undefined) {
+      if (typeof updates.language === 'string' && updates.language.length >= 2) {
+        validated.language = updates.language;
+      }
     }
 
-    if (updates.language && typeof updates.language === 'string') {
-      validated.language = updates.language;
+    if (updates.notificationsEnabled !== undefined) {
+      if (typeof updates.notificationsEnabled === 'boolean') {
+        validated.notificationsEnabled = updates.notificationsEnabled;
+      }
     }
 
-    if (updates.fontSize && updates.fontSize >= 12 && updates.fontSize <= 24) {
-      validated.fontSize = updates.fontSize;
+    if (updates.fontSize !== undefined) {
+      if (typeof updates.fontSize === 'number' && updates.fontSize >= 8 && updates.fontSize <= 32) {
+        validated.fontSize = updates.fontSize;
+      }
     }
 
     return validated;
-  }
-
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
   }
 
   getPreferences(): Readonly<UserPreferences> {
@@ -69,9 +77,9 @@ class UserPreferencesManager {
 
 const defaultPreferences: UserPreferences = {
   theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 16
+  language: 'en',
+  notificationsEnabled: true,
+  fontSize: 14
 };
 
-export const userPrefs = new UserPreferencesManager(defaultPreferences);
+export const userPrefsManager = new UserPreferencesManager(defaultPreferences);
