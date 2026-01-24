@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const PreferenceSchema = z.object({
+const UserPreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).default('auto'),
   notifications: z.object({
     email: z.boolean().default(true),
@@ -14,41 +14,30 @@ const PreferenceSchema = z.object({
   language: z.string().min(2).max(5).default('en')
 }).strict();
 
-type UserPreferences = z.infer<typeof PreferenceSchema>;
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-export function validatePreferences(input: unknown): UserPreferences {
+export function validateUserPreferences(input: unknown): UserPreferences {
   try {
-    return PreferenceSchema.parse(input);
+    return UserPreferencesSchema.parse(input);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const formattedErrors = error.errors.map(err => ({
-        path: err.path.join('.'),
-        message: err.message
-      }));
-      throw new Error(`Invalid preferences: ${JSON.stringify(formattedErrors)}`);
+      const errorMessages = error.errors.map(err => 
+        `${err.path.join('.')}: ${err.message}`
+      );
+      throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
     }
     throw error;
   }
 }
 
-export function getDefaultPreferences(): UserPreferences {
-  return PreferenceSchema.parse({});
+export function createDefaultPreferences(): UserPreferences {
+  return UserPreferencesSchema.parse({});
 }
 
-export function mergePreferences(existing: Partial<UserPreferences>, updates: Partial<UserPreferences>): UserPreferences {
-  const current = PreferenceSchema.partial().parse(existing);
-  const changes = PreferenceSchema.partial().parse(updates);
-  
-  return PreferenceSchema.parse({
-    ...current,
-    ...changes,
-    notifications: {
-      ...current.notifications,
-      ...changes.notifications
-    },
-    privacy: {
-      ...current.privacy,
-      ...changes.privacy
-    }
-  });
+export function mergePreferences(
+  existing: Partial<UserPreferences>,
+  updates: Partial<UserPreferences>
+): UserPreferences {
+  const merged = { ...existing, ...updates };
+  return validateUserPreferences(merged);
 }
