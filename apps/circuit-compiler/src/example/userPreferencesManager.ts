@@ -158,4 +158,91 @@ const defaultPrefs: UserPreferences = {
   fontSize: 14
 };
 
-export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+export const userPrefsManager = new UserPreferencesManager(defaultPrefs);interface UserPreferences {
+  theme: 'light' | 'dark';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  notifications: true,
+  language: 'en',
+  itemsPerPage: 10
+};
+
+const VALID_LANGUAGES = ['en', 'es', 'fr', 'de'];
+const MIN_ITEMS_PER_PAGE = 5;
+const MAX_ITEMS_PER_PAGE = 100;
+
+class PreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
+  }
+
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof this.preferences.itemsPerPage !== 'number' ||
+        this.preferences.itemsPerPage < MIN_ITEMS_PER_PAGE ||
+        this.preferences.itemsPerPage > MAX_ITEMS_PER_PAGE) {
+      this.preferences.itemsPerPage = DEFAULT_PREFERENCES.itemsPerPage;
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const previousPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    this.validateAndFixPreferences();
+
+    if (JSON.stringify(previousPreferences) !== JSON.stringify(this.preferences)) {
+      this.saveToStorage();
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.saveToStorage();
+  }
+
+  private saveToStorage(): void {
+    try {
+      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences to storage:', error);
+    }
+  }
+
+  static loadFromStorage(): PreferencesManager {
+    try {
+      const stored = localStorage.getItem('userPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new PreferencesManager(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load preferences from storage:', error);
+    }
+    return new PreferencesManager();
+  }
+}
+
+export { PreferencesManager, type UserPreferences };
