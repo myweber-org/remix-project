@@ -1,42 +1,50 @@
+import { z } from "zod";
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
+const UserPreferencesSchema = z.object({
+  theme: z.enum(["light", "dark", "auto"]).default("auto"),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(["immediate", "daily", "weekly"]).default("daily")
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(["public", "friends", "private"]).default("friends"),
+    searchIndexing: z.boolean().default(true)
+  }).default({}),
+  language: z.string().min(2).max(5).default("en")
+}).strict();
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export function validateUserPreferences(input: unknown): UserPreferences {
+  try {
+    return UserPreferencesSchema.parse(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`Invalid user preferences: ${error.errors.map(e => `${e.path}: ${e.message}`).join(", ")}`);
+    }
+    throw error;
+  }
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en',
-  fontSize: 14
-};
-
-function validatePreferences(preferences: Partial<UserPreferences>): UserPreferences {
-  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-  if (preferences.theme && ['light', 'dark', 'auto'].includes(preferences.theme)) {
-    validated.theme = preferences.theme;
-  }
-
-  if (typeof preferences.notifications === 'boolean') {
-    validated.notifications = preferences.notifications;
-  }
-
-  if (preferences.language && typeof preferences.language === 'string') {
-    validated.language = preferences.language.trim();
-  }
-
-  if (preferences.fontSize && typeof preferences.fontSize === 'number') {
-    validated.fontSize = Math.max(8, Math.min(72, preferences.fontSize));
-  }
-
-  return validated;
+export function getDefaultPreferences(): UserPreferences {
+  return UserPreferencesSchema.parse({});
 }
 
-function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
-  return validatePreferences({ ...existing, ...updates });
+export function mergePreferences(existing: Partial<UserPreferences>, updates: Partial<UserPreferences>): UserPreferences {
+  const current = UserPreferencesSchema.partial().parse(existing);
+  const changes = UserPreferencesSchema.partial().parse(updates);
+  
+  return UserPreferencesSchema.parse({
+    ...current,
+    ...changes,
+    notifications: {
+      ...current.notifications,
+      ...changes.notifications
+    },
+    privacy: {
+      ...current.privacy,
+      ...changes.privacy
+    }
+  });
 }
-
-export { UserPreferences, validatePreferences, mergePreferences };
