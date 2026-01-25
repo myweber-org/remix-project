@@ -1,73 +1,52 @@
 interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
+  theme: 'light' | 'dark';
   fontSize: number;
+  notificationsEnabled: boolean;
 }
 
-class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private preferences: UserPreferences;
-
-  constructor(defaultPreferences: UserPreferences) {
-    this.preferences = this.loadPreferences() || defaultPreferences;
-  }
-
-  private loadPreferences(): UserPreferences | null {
-    try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
-    this.savePreferences();
-    return true;
-  }
-
-  private validatePreferences(prefs: UserPreferences): boolean {
-    const validThemes = ['light', 'dark', 'auto'];
-    return (
-      validThemes.includes(prefs.theme) &&
-      typeof prefs.notifications === 'boolean' &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      prefs.fontSize >= 8 &&
-      prefs.fontSize <= 32
-    );
-  }
-
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
-  }
-
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
-    this.savePreferences();
-  }
-}
-
-const defaultPreferences: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en',
-  fontSize: 16
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  fontSize: 14,
+  notificationsEnabled: true
 };
 
-export { UserPreferencesManager, type UserPreferences, defaultPreferences };
+class UserPreferencesManager {
+  private readonly storageKey = 'user_preferences';
+
+  loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<UserPreferences>;
+        return { ...DEFAULT_PREFERENCES, ...parsed };
+      }
+    } catch (error) {
+      console.warn('Failed to load user preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  savePreferences(prefs: Partial<UserPreferences>): void {
+    try {
+      const current = this.loadPreferences();
+      const updated = { ...current, ...prefs };
+      localStorage.setItem(this.storageKey, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to save user preferences:', error);
+    }
+  }
+
+  resetToDefaults(): void {
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.error('Failed to reset preferences:', error);
+    }
+  }
+
+  getCurrentTheme(): 'light' | 'dark' {
+    return this.loadPreferences().theme;
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
