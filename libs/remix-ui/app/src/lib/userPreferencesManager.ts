@@ -134,3 +134,112 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14
+};
+
+const STORAGE_KEY = 'user_preferences';
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      return { ...DEFAULT_PREFERENCES };
+    }
+
+    const prefs = data as Partial<UserPreferences>;
+    
+    return {
+      theme: this.isValidTheme(prefs.theme) ? prefs.theme : DEFAULT_PREFERENCES.theme,
+      notifications: typeof prefs.notifications === 'boolean' ? prefs.notifications : DEFAULT_PREFERENCES.notifications,
+      language: typeof prefs.language === 'string' ? prefs.language : DEFAULT_PREFERENCES.language,
+      fontSize: typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 24 
+        ? prefs.fontSize 
+        : DEFAULT_PREFERENCES.fontSize
+    };
+  }
+
+  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
+    return theme === 'light' || theme === 'dark' || theme === 'auto';
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const newPreferences = { ...this.preferences, ...updates };
+    const validated = this.validatePreferences(newPreferences);
+
+    if (JSON.stringify(validated) !== JSON.stringify(this.preferences)) {
+      this.preferences = validated;
+      this.savePreferences();
+      return true;
+    }
+    return false;
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.savePreferences();
+  }
+
+  getTheme(): UserPreferences['theme'] {
+    return this.preferences.theme;
+  }
+
+  toggleNotifications(): void {
+    this.updatePreferences({ notifications: !this.preferences.notifications });
+  }
+
+  setLanguage(language: string): void {
+    if (typeof language === 'string' && language.length >= 2) {
+      this.updatePreferences({ language });
+    }
+  }
+
+  adjustFontSize(delta: number): void {
+    const newSize = this.preferences.fontSize + delta;
+    if (newSize >= 8 && newSize <= 24) {
+      this.updatePreferences({ fontSize: newSize });
+    }
+  }
+}
+
+export const userPreferences = new UserPreferencesManager();
