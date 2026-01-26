@@ -72,4 +72,44 @@ class PreferenceValidator {
   }
 }
 
-export { UserPreferences, PreferenceValidator };
+export { UserPreferences, PreferenceValidator };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+function validatePreferences(input: Partial<UserPreferences>): UserPreferences {
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (input.theme && ['light', 'dark', 'auto'].includes(input.theme)) {
+    validated.theme = input.theme;
+  }
+
+  if (typeof input.notifications === 'boolean') {
+    validated.notifications = input.notifications;
+  }
+
+  if (input.language && typeof input.language === 'string' && input.language.length >= 2) {
+    validated.language = input.language;
+  }
+
+  if (input.resultsPerPage && Number.isInteger(input.resultsPerPage) && input.resultsPerPage > 0) {
+    validated.resultsPerPage = Math.min(input.resultsPerPage, 100);
+  }
+
+  return validated;
+}
+
+function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  return validatePreferences({ ...existing, ...updates });
+}
+
+export { UserPreferences, validatePreferences, mergePreferences };
