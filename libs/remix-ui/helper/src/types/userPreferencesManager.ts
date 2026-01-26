@@ -161,3 +161,100 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+  autoSave: boolean;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14,
+  autoSave: true
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 32;
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
+  }
+
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof this.preferences.fontSize !== 'number' || 
+        this.preferences.fontSize < MIN_FONT_SIZE || 
+        this.preferences.fontSize > MAX_FONT_SIZE) {
+      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
+    }
+
+    if (typeof this.preferences.notifications !== 'boolean') {
+      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (typeof this.preferences.autoSave !== 'boolean') {
+      this.preferences.autoSave = DEFAULT_PREFERENCES.autoSave;
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const previousPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    
+    try {
+      this.validateAndFixPreferences();
+      return true;
+    } catch (error) {
+      this.preferences = previousPreferences;
+      return false;
+    }
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  importPreferences(jsonString: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return this.updatePreferences(parsed);
+    } catch {
+      return false;
+    }
+  }
+
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      const hour = new Date().getHours();
+      return hour >= 18 || hour < 6;
+    }
+    return this.preferences.theme === 'dark';
+  }
+}
+
+export { UserPreferencesManager, DEFAULT_PREFERENCES };
+export type { UserPreferences };
