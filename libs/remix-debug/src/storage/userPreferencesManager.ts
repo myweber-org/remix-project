@@ -1,0 +1,89 @@
+typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    fontSize: 14
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 32;
+
+class UserPreferencesManager {
+    private preferences: UserPreferences;
+
+    constructor() {
+        this.preferences = this.loadPreferences();
+    }
+
+    private loadPreferences(): UserPreferences {
+        try {
+            const stored = localStorage.getItem('userPreferences');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return this.validatePreferences(parsed);
+            }
+        } catch (error) {
+            console.warn('Failed to load preferences:', error);
+        }
+        return { ...DEFAULT_PREFERENCES };
+    }
+
+    private validatePreferences(prefs: any): UserPreferences {
+        const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+        if (VALID_LANGUAGES.includes(prefs.language)) {
+            validated.language = prefs.language;
+        }
+
+        if (typeof prefs.notifications === 'boolean') {
+            validated.notifications = prefs.notifications;
+        }
+
+        if (['light', 'dark', 'auto'].includes(prefs.theme)) {
+            validated.theme = prefs.theme;
+        }
+
+        if (typeof prefs.fontSize === 'number') {
+            validated.fontSize = Math.max(MIN_FONT_SIZE, 
+                Math.min(MAX_FONT_SIZE, prefs.fontSize));
+        }
+
+        return validated;
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): void {
+        const newPreferences = { ...this.preferences, ...updates };
+        this.preferences = this.validatePreferences(newPreferences);
+        this.savePreferences();
+    }
+
+    private savePreferences(): void {
+        try {
+            localStorage.setItem('userPreferences', 
+                JSON.stringify(this.preferences));
+        } catch (error) {
+            console.error('Failed to save preferences:', error);
+        }
+    }
+
+    getPreferences(): Readonly<UserPreferences> {
+        return { ...this.preferences };
+    }
+
+    resetToDefaults(): void {
+        this.preferences = { ...DEFAULT_PREFERENCES };
+        this.savePreferences();
+    }
+}
+
+export const preferencesManager = new UserPreferencesManager();
+```
