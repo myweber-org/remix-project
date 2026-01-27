@@ -13,50 +13,48 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
+const MIN_RESULTS_PER_PAGE = 5;
 const MAX_RESULTS_PER_PAGE = 100;
 
-class PreferenceManager {
-  private preferences: UserPreferences;
-
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndFixPreferences();
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const validated = { ...DEFAULT_PREFERENCES, ...prefs };
+  
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    validated.theme = DEFAULT_PREFERENCES.theme;
   }
-
-  private validateAndFixPreferences(): void {
-    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
-      this.preferences.language = DEFAULT_PREFERENCES.language;
-    }
-
-    if (this.preferences.resultsPerPage < MIN_RESULTS_PER_PAGE) {
-      this.preferences.resultsPerPage = MIN_RESULTS_PER_PAGE;
-    } else if (this.preferences.resultsPerPage > MAX_RESULTS_PER_PAGE) {
-      this.preferences.resultsPerPage = MAX_RESULTS_PER_PAGE;
-    }
+  
+  if (!VALID_LANGUAGES.includes(validated.language)) {
+    validated.language = DEFAULT_PREFERENCES.language;
   }
-
-  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
-    this.preferences = { ...this.preferences, ...updates };
-    this.validateAndFixPreferences();
-    return this.getPreferences();
+  
+  if (typeof validated.notifications !== 'boolean') {
+    validated.notifications = DEFAULT_PREFERENCES.notifications;
   }
-
-  getPreferences(): UserPreferences {
-    return { ...this.preferences };
+  
+  if (typeof validated.resultsPerPage !== 'number' || 
+      validated.resultsPerPage < MIN_RESULTS_PER_PAGE || 
+      validated.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+    validated.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
   }
+  
+  return validated;
+}
 
-  resetToDefaults(): UserPreferences {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    return this.getPreferences();
-  }
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validated = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
+}
 
-  isDarkMode(): boolean {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return this.preferences.theme === 'dark';
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (!stored) return DEFAULT_PREFERENCES;
+  
+  try {
+    const parsed = JSON.parse(stored);
+    return validatePreferences(parsed);
+  } catch {
+    return DEFAULT_PREFERENCES;
   }
 }
 
-export { PreferenceManager, type UserPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
