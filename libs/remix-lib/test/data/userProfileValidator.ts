@@ -1,0 +1,27 @@
+import { z } from 'zod';
+
+const userProfileSchema = z.object({
+  username: z.string().min(3).max(20),
+  email: z.string().email(),
+  age: z.number().int().positive().optional(),
+  preferences: z.object({
+    theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+    notifications: z.boolean().default(true)
+  }).default({}),
+  createdAt: z.date().default(() => new Date())
+});
+
+type UserProfile = z.infer<typeof userProfileSchema>;
+
+function validateUserProfile(input: unknown): UserProfile {
+  try {
+    return userProfileSchema.parse(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('Validation failed:', error.errors);
+    }
+    throw new Error('Invalid user profile data');
+  }
+}
+
+export { userProfileSchema, validateUserProfile, type UserProfile };
