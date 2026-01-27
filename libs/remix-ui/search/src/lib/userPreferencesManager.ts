@@ -289,4 +289,88 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    language: string;
+    notificationsEnabled: boolean;
+    fontSize: number;
+}
+
+class UserPreferencesManager {
+    private static readonly STORAGE_KEY = 'user_preferences';
+    private preferences: UserPreferences;
+    private listeners: Set<(prefs: UserPreferences) => void> = new Set();
+
+    constructor(defaultPreferences: UserPreferences) {
+        this.preferences = this.loadPreferences() || defaultPreferences;
+    }
+
+    private loadPreferences(): UserPreferences | null {
+        try {
+            const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private savePreferences(): void {
+        try {
+            localStorage.setItem(
+                UserPreferencesManager.STORAGE_KEY,
+                JSON.stringify(this.preferences)
+            );
+        } catch (error) {
+            console.error('Failed to save preferences:', error);
+        }
+    }
+
+    getPreferences(): Readonly<UserPreferences> {
+        return { ...this.preferences };
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): void {
+        const oldPreferences = { ...this.preferences };
+        this.preferences = { ...this.preferences, ...updates };
+        
+        if (JSON.stringify(oldPreferences) !== JSON.stringify(this.preferences)) {
+            this.savePreferences();
+            this.notifyListeners();
+        }
+    }
+
+    subscribe(listener: (prefs: UserPreferences) => void): () => void {
+        this.listeners.add(listener);
+        listener(this.preferences);
+        
+        return () => {
+            this.listeners.delete(listener);
+        };
+    }
+
+    private notifyListeners(): void {
+        const currentPrefs = this.getPreferences();
+        this.listeners.forEach(listener => {
+            try {
+                listener(currentPrefs);
+            } catch (error) {
+                console.error('Listener error:', error);
+            }
+        });
+    }
+
+    resetToDefaults(defaults: UserPreferences): void {
+        this.updatePreferences(defaults);
+    }
+}
+
+const defaultUserPreferences: UserPreferences = {
+    theme: 'auto',
+    language: 'en-US',
+    notificationsEnabled: true,
+    fontSize: 16
+};
+
+export const userPrefsManager = new UserPreferencesManager(defaultUserPreferences);
+```
