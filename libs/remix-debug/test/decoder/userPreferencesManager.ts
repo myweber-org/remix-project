@@ -8,14 +8,14 @@ const UserPreferencesSchema = z.object({
     frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
   }),
   privacy: z.object({
-    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
     dataSharing: z.boolean().default(false)
   })
 });
 
 type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-const STORAGE_KEY = 'user_preferences';
+const STORAGE_KEY = 'user_preferences_v1';
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
@@ -79,4 +79,4 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferencesManager = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();
