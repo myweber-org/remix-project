@@ -1,58 +1,42 @@
+import { z } from 'zod';
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
-}
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  language: z.string().min(2).default('en'),
+  notificationsEnabled: z.boolean().default(true),
+  fontSize: z.number().min(8).max(32).default(14),
+  autoSaveInterval: z.number().min(0).max(300).default(30)
+});
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
-};
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 24;
+const STORAGE_KEY = 'app_user_preferences';
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndFixPreferences();
+  constructor() {
+    this.preferences = this.loadPreferences();
   }
 
-  private validateAndFixPreferences(): void {
-    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
-      this.preferences.theme = DEFAULT_PREFERENCES.theme;
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return UserPreferencesSchema.parse(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences, using defaults:', error);
     }
-
-    if (typeof this.preferences.notifications !== 'boolean') {
-      this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
-    }
-
-    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
-      this.preferences.language = DEFAULT_PREFERENCES.language;
-    }
-
-    if (typeof this.preferences.fontSize !== 'number' || 
-        this.preferences.fontSize < MIN_FONT_SIZE || 
-        this.preferences.fontSize > MAX_FONT_SIZE) {
-      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
-    }
+    return UserPreferencesSchema.parse({});
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const previousPreferences = { ...this.preferences };
-    
-    this.preferences = { ...this.preferences, ...updates };
-    this.validateAndFixPreferences();
-
-    if (JSON.stringify(previousPreferences) !== JSON.stringify(this.preferences)) {
-      this.saveToStorage();
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
     }
   }
 
@@ -60,32 +44,40 @@ class UserPreferencesManager {
     return { ...this.preferences };
   }
 
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    try {
+      const newPreferences = { ...this.preferences, ...updates };
+      const validated = UserPreferencesSchema.parse(newPreferences);
+      this.preferences = validated;
+      this.savePreferences();
+      return true;
+    } catch (error) {
+      console.error('Invalid preferences update:', error);
+      return false;
+    }
+  }
+
   resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    this.saveToStorage();
+    this.preferences = UserPreferencesSchema.parse({});
+    this.savePreferences();
   }
 
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences to storage:', error);
-    }
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
   }
 
-  static loadFromStorage(): UserPreferencesManager {
+  importPreferences(json: string): boolean {
     try {
-      const stored = localStorage.getItem('userPreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return new UserPreferencesManager(parsed);
-      }
+      const parsed = JSON.parse(json);
+      const validated = UserPreferencesSchema.parse(parsed);
+      this.preferences = validated;
+      this.savePreferences();
+      return true;
     } catch (error) {
-      console.error('Failed to load preferences from storage:', error);
+      console.error('Failed to import preferences:', error);
+      return false;
     }
-    
-    return new UserPreferencesManager();
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const userPreferencesManager = new UserPreferencesManager();
