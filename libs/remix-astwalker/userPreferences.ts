@@ -1,49 +1,57 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
+  resultsPerPage: number;
 }
 
-function validateUserPreferences(prefs: Partial<UserPreferences>): boolean {
-  const validThemes = ['light', 'dark', 'auto'];
-  
-  if (prefs.theme && !validThemes.includes(prefs.theme)) {
-    return false;
-  }
-
-  if (prefs.fontSize !== undefined && (prefs.fontSize < 12 || prefs.fontSize > 24)) {
-    return false;
-  }
-
-  if (prefs.language !== undefined && typeof prefs.language !== 'string') {
-    return false;
-  }
-
-  if (prefs.notificationsEnabled !== undefined && typeof prefs.notificationsEnabled !== 'boolean') {
-    return false;
-  }
-
-  return true;
-}
-
-function mergeUserPreferences(
-  existing: UserPreferences,
-  updates: Partial<UserPreferences>
-): UserPreferences | null {
-  if (!validateUserPreferences(updates)) {
-    return null;
-  }
-
-  return {
-    ...existing,
-    ...updates
-  };
-}
-
-const defaultPreferences: UserPreferences = {
+const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
-  language: 'en',
-  notificationsEnabled: true,
-  fontSize: 16
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 10
 };
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const VALID_RESULTS_PER_PAGE = [5, 10, 25, 50];
+
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
+    validated.theme = prefs.theme;
+  }
+
+  if (typeof prefs.notifications === 'boolean') {
+    validated.notifications = prefs.notifications;
+  }
+
+  if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
+    validated.language = prefs.language;
+  }
+
+  if (prefs.resultsPerPage && VALID_RESULTS_PER_PAGE.includes(prefs.resultsPerPage)) {
+    validated.resultsPerPage = prefs.resultsPerPage;
+  }
+
+  return validated;
+}
+
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validated = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
+}
+
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (!stored) return DEFAULT_PREFERENCES;
+
+  try {
+    const parsed = JSON.parse(stored);
+    return validatePreferences(parsed);
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
