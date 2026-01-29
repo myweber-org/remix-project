@@ -1,92 +1,92 @@
-
+typescript
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  fontSize: number;
+  resultsPerPage: number;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  fontSize: 14
+  resultsPerPage: 20
 };
 
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 10;
+const MAX_RESULTS_PER_PAGE = 100;
+
 class UserPreferencesManager {
-  private preferences: UserPreferences;
+  private storageKey: string;
 
-  constructor() {
-    this.preferences = this.loadPreferences();
+  constructor(storageKey: string = 'userPreferences') {
+    this.storageKey = storageKey;
   }
 
-  private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem('userPreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return this.validatePreferences(parsed);
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences from storage:', error);
-    }
-    return { ...DEFAULT_PREFERENCES };
-  }
+  validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+    const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
 
-  private validatePreferences(data: unknown): UserPreferences {
-    const result = { ...DEFAULT_PREFERENCES };
-
-    if (data && typeof data === 'object') {
-      const obj = data as Record<string, unknown>;
-
-      if (obj.theme && ['light', 'dark', 'auto'].includes(obj.theme as string)) {
-        result.theme = obj.theme as UserPreferences['theme'];
-      }
-
-      if (typeof obj.notifications === 'boolean') {
-        result.notifications = obj.notifications;
-      }
-
-      if (typeof obj.language === 'string' && obj.language.length >= 2) {
-        result.language = obj.language;
-      }
-
-      if (typeof obj.fontSize === 'number' && obj.fontSize >= 8 && obj.fontSize <= 32) {
-        result.fontSize = obj.fontSize;
-      }
+    if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
+      validated.theme = prefs.theme;
     }
 
-    return result;
+    if (typeof prefs.notifications === 'boolean') {
+      validated.notifications = prefs.notifications;
+    }
+
+    if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
+      validated.language = prefs.language;
+    }
+
+    if (typeof prefs.resultsPerPage === 'number') {
+      validated.resultsPerPage = Math.max(
+        MIN_RESULTS_PER_PAGE,
+        Math.min(MAX_RESULTS_PER_PAGE, prefs.resultsPerPage)
+      );
+    }
+
+    return validated;
   }
 
-  getPreferences(): UserPreferences {
-    return { ...this.preferences };
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
-    const newPreferences = { ...this.preferences, ...updates };
-    this.preferences = this.validatePreferences(newPreferences);
-    this.savePreferences();
-    return this.getPreferences();
-  }
-
-  private savePreferences(): void {
+  savePreferences(prefs: Partial<UserPreferences>): boolean {
     try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+      const validated = this.validatePreferences(prefs);
+      localStorage.setItem(this.storageKey, JSON.stringify(validated));
+      return true;
     } catch (error) {
       console.error('Failed to save preferences:', error);
+      return false;
     }
   }
 
-  resetToDefaults(): UserPreferences {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    this.savePreferences();
-    return this.getPreferences();
+  loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (!stored) return DEFAULT_PREFERENCES;
+
+      const parsed = JSON.parse(stored);
+      return this.validatePreferences(parsed);
+    } catch (error) {
+      console.error('Failed to load preferences:', error);
+      return DEFAULT_PREFERENCES;
+    }
   }
 
-  hasCustomPreferences(): boolean {
-    return JSON.stringify(this.preferences) !== JSON.stringify(DEFAULT_PREFERENCES);
+  resetToDefaults(): boolean {
+    return this.savePreferences(DEFAULT_PREFERENCES);
+  }
+
+  getCurrentTheme(): 'light' | 'dark' {
+    const prefs = this.loadPreferences();
+    
+    if (prefs.theme !== 'auto') {
+      return prefs.theme;
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
 }
 
 export { UserPreferencesManager, type UserPreferences };
+```
