@@ -77,4 +77,86 @@ class PreferencesManager {
   }
 }
 
-export const preferencesManager = new PreferencesManager();
+export const preferencesManager = new PreferencesManager();typescript
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  fontSize: 16,
+  notificationsEnabled: true,
+  language: 'en-US'
+};
+
+class UserPreferencesManager {
+  private static STORAGE_KEY = 'user_preferences';
+  private listeners: Set<(prefs: UserPreferences) => void> = new Set();
+  private currentPreferences: UserPreferences;
+
+  constructor() {
+    this.currentPreferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...DEFAULT_PREFERENCES, ...parsed };
+      }
+    } catch (error) {
+      console.warn('Failed to load user preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.currentPreferences)
+      );
+    } catch (error) {
+      console.warn('Failed to save user preferences:', error);
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.currentPreferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const previous = { ...this.currentPreferences };
+    this.currentPreferences = { ...this.currentPreferences, ...updates };
+    
+    if (JSON.stringify(previous) !== JSON.stringify(this.currentPreferences)) {
+      this.savePreferences();
+      this.notifyListeners();
+    }
+  }
+
+  resetToDefaults(): void {
+    this.updatePreferences(DEFAULT_PREFERENCES);
+  }
+
+  subscribe(listener: (prefs: UserPreferences) => void): () => void {
+    this.listeners.add(listener);
+    listener(this.currentPreferences);
+    
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notifyListeners(): void {
+    const prefs = this.getPreferences();
+    this.listeners.forEach(listener => listener(prefs));
+  }
+}
+
+export const userPreferences = new UserPreferencesManager();
+```
