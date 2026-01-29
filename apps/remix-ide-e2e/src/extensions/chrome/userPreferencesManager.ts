@@ -30,37 +30,25 @@ class UserPreferencesManager {
       theme: 'auto',
       notifications: true,
       language: 'en',
-      fontSize: 16
+      fontSize: 14
     };
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid preferences data');
-    }
-
-    const prefs = data as Partial<UserPreferences>;
+  private validatePreferences(data: any): UserPreferences {
+    const validThemes = ['light', 'dark', 'auto'];
+    const theme = validThemes.includes(data.theme) ? data.theme : 'auto';
     
-    const theme = prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme) 
-      ? prefs.theme 
-      : 'auto';
-    
-    const notifications = typeof prefs.notifications === 'boolean' 
-      ? prefs.notifications 
-      : true;
-    
-    const language = typeof prefs.language === 'string' && prefs.language.length === 2
-      ? prefs.language
-      : 'en';
-    
-    const fontSize = typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 32
-      ? prefs.fontSize
-      : 16;
-
-    return { theme, notifications, language, fontSize };
+    return {
+      theme: theme,
+      notifications: typeof data.notifications === 'boolean' ? data.notifications : true,
+      language: typeof data.language === 'string' ? data.language : 'en',
+      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 24 
+        ? data.fontSize 
+        : 14
+    };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): void {
+  updatePreferences(updates: Partial<UserPreferences>): void {
     this.preferences = {
       ...this.preferences,
       ...updates
@@ -70,30 +58,18 @@ class UserPreferencesManager {
 
   private savePreferences(): void {
     localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
+      UserPreferencesManager.STORAGE_KEY, 
       JSON.stringify(this.preferences)
     );
   }
 
-  public getPreferences(): Readonly<UserPreferences> {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  public resetToDefaults(): void {
+  resetToDefaults(): void {
     this.preferences = this.getDefaultPreferences();
     this.savePreferences();
-  }
-
-  public applyTheme(): void {
-    const theme = this.preferences.theme === 'auto'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      : this.preferences.theme;
-    
-    document.documentElement.setAttribute('data-theme', theme);
-  }
-
-  public applyFontSize(): void {
-    document.documentElement.style.fontSize = `${this.preferences.fontSize}px`;
   }
 }
 
