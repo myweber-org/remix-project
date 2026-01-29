@@ -1,101 +1,64 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  notificationsEnabled: boolean;
+  fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 5;
-const MAX_RESULTS_PER_PAGE = 100;
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndFixPreferences();
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
     }
+  }
 
-    this.preferences = newPreferences;
-    this.saveToStorage();
-    return true;
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const merged = { ...this.preferences, ...updates };
+    
+    if (this.validatePreferences(merged)) {
+      this.preferences = merged;
+      this.savePreferences();
+    } else {
+      throw new Error('Invalid preferences provided');
+    }
+  }
+
+  private validatePreferences(prefs: UserPreferences): boolean {
+    return (
+      ['light', 'dark', 'auto'].includes(prefs.theme) &&
+      typeof prefs.language === 'string' &&
+      prefs.language.length >= 2 &&
+      typeof prefs.notificationsEnabled === 'boolean' &&
+      prefs.fontSize >= 8 &&
+      prefs.fontSize <= 32
+    );
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
   }
 
   getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    this.saveToStorage();
-  }
-
-  private validatePreferences(prefs: UserPreferences): boolean {
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      return false;
-    }
-
-    if (typeof prefs.notifications !== 'boolean') {
-      return false;
-    }
-
-    if (!VALID_LANGUAGES.includes(prefs.language)) {
-      return false;
-    }
-
-    if (!Number.isInteger(prefs.resultsPerPage) || 
-        prefs.resultsPerPage < MIN_RESULTS_PER_PAGE || 
-        prefs.resultsPerPage > MAX_RESULTS_PER_PAGE) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private validateAndFixPreferences(): void {
-    if (!this.validatePreferences(this.preferences)) {
-      console.warn('Invalid preferences detected, resetting to defaults');
-      this.preferences = { ...DEFAULT_PREFERENCES };
-    }
-  }
-
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences to storage:', error);
-    }
-  }
-
-  static loadFromStorage(): UserPreferencesManager {
-    try {
-      const stored = localStorage.getItem('userPreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return new UserPreferencesManager(parsed);
-      }
-    } catch (error) {
-      console.error('Failed to load preferences from storage:', error);
-    }
-    
-    return new UserPreferencesManager();
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = defaults;
+    this.savePreferences();
   }
 }
 
-export { UserPreferencesManager, DEFAULT_PREFERENCES };
-export type { UserPreferences };
+export { UserPreferencesManager, type UserPreferences };
