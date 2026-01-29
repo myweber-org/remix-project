@@ -1,97 +1,111 @@
 
 interface UserProfile {
   id: string;
-  username: string;
   email: string;
+  username: string;
   age?: number;
-  isActive: boolean;
-  lastLogin: Date;
+  preferences: {
+    theme: 'light' | 'dark';
+    notifications: boolean;
+  };
 }
 
 class UserProfileManager {
-  private profiles: Map<string, UserProfile>;
+  private profiles: Map<string, UserProfile> = new Map();
 
-  constructor() {
-    this.profiles = new Map();
-  }
+  validateProfile(profile: Partial<UserProfile>): string[] {
+    const errors: string[] = [];
 
-  addProfile(profile: UserProfile): boolean {
-    if (this.profiles.has(profile.id)) {
-      return false;
+    if (profile.email && !this.isValidEmail(profile.email)) {
+      errors.push('Invalid email format');
     }
 
-    if (!this.validateProfile(profile)) {
-      return false;
-    }
-
-    this.profiles.set(profile.id, profile);
-    return true;
-  }
-
-  updateProfile(id: string, updates: Partial<UserProfile>): boolean {
-    const existingProfile = this.profiles.get(id);
-    if (!existingProfile) {
-      return false;
-    }
-
-    const updatedProfile = { ...existingProfile, ...updates };
-    if (!this.validateProfile(updatedProfile)) {
-      return false;
-    }
-
-    this.profiles.set(id, updatedProfile);
-    return true;
-  }
-
-  getProfile(id: string): UserProfile | undefined {
-    return this.profiles.get(id);
-  }
-
-  deactivateProfile(id: string): boolean {
-    const profile = this.profiles.get(id);
-    if (!profile) {
-      return false;
-    }
-
-    return this.updateProfile(id, { isActive: false });
-  }
-
-  getActiveUsers(): UserProfile[] {
-    return Array.from(this.profiles.values())
-      .filter(profile => profile.isActive)
-      .sort((a, b) => b.lastLogin.getTime() - a.lastLogin.getTime());
-  }
-
-  private validateProfile(profile: UserProfile): boolean {
-    if (!profile.id || !profile.username || !profile.email) {
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(profile.email)) {
-      return false;
-    }
-
-    if (profile.age !== undefined && (profile.age < 0 || profile.age > 150)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  clearInactiveUsers(daysThreshold: number): number {
-    const thresholdDate = new Date();
-    thresholdDate.setDate(thresholdDate.getDate() - daysThreshold);
-
-    let removedCount = 0;
-    for (const [id, profile] of this.profiles.entries()) {
-      if (!profile.isActive && profile.lastLogin < thresholdDate) {
-        this.profiles.delete(id);
-        removedCount++;
+    if (profile.username) {
+      if (profile.username.length < 3) {
+        errors.push('Username must be at least 3 characters long');
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(profile.username)) {
+        errors.push('Username can only contain letters, numbers, and underscores');
       }
     }
 
-    return removedCount;
+    if (profile.age !== undefined && (profile.age < 0 || profile.age > 150)) {
+      errors.push('Age must be between 0 and 150');
+    }
+
+    if (profile.preferences?.theme && !['light', 'dark'].includes(profile.preferences.theme)) {
+      errors.push('Theme must be either light or dark');
+    }
+
+    return errors;
+  }
+
+  updateProfile(userId: string, updates: Partial<UserProfile>): { success: boolean; errors?: string[] } {
+    const existingProfile = this.profiles.get(userId);
+    
+    if (!existingProfile) {
+      return { 
+        success: false, 
+        errors: ['User profile not found'] 
+      };
+    }
+
+    const validationErrors = this.validateProfile(updates);
+    
+    if (validationErrors.length > 0) {
+      return { 
+        success: false, 
+        errors: validationErrors 
+      };
+    }
+
+    const updatedProfile: UserProfile = {
+      ...existingProfile,
+      ...updates,
+      preferences: {
+        ...existingProfile.preferences,
+        ...updates.preferences
+      }
+    };
+
+    this.profiles.set(userId, updatedProfile);
+    return { success: true };
+  }
+
+  getProfile(userId: string): UserProfile | undefined {
+    return this.profiles.get(userId);
+  }
+
+  registerProfile(profile: Omit<UserProfile, 'id'>): { success: boolean; profile?: UserProfile; errors?: string[] } {
+    const userId = this.generateUserId();
+    const newProfile: UserProfile = {
+      ...profile,
+      id: userId
+    };
+
+    const validationErrors = this.validateProfile(newProfile);
+    
+    if (validationErrors.length > 0) {
+      return { 
+        success: false, 
+        errors: validationErrors 
+      };
+    }
+
+    this.profiles.set(userId, newProfile);
+    return { 
+      success: true, 
+      profile: newProfile 
+    };
+  }
+
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  private generateUserId(): string {
+    return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 
