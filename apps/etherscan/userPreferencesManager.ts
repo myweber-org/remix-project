@@ -22,6 +22,29 @@ class UserPreferencesManager {
     }
   }
 
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const newPreferences = { ...this.preferences, ...updates };
+    
+    if (!this.validatePreferences(newPreferences)) {
+      return false;
+    }
+
+    this.preferences = newPreferences;
+    this.savePreferences();
+    return true;
+  }
+
+  private validatePreferences(prefs: UserPreferences): boolean {
+    return (
+      ['light', 'dark', 'auto'].includes(prefs.theme) &&
+      typeof prefs.language === 'string' &&
+      prefs.language.length >= 2 &&
+      typeof prefs.notificationsEnabled === 'boolean' &&
+      prefs.fontSize >= 8 &&
+      prefs.fontSize <= 72
+    );
+  }
+
   private savePreferences(): void {
     localStorage.setItem(
       UserPreferencesManager.STORAGE_KEY,
@@ -29,57 +52,14 @@ class UserPreferencesManager {
     );
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    const validated = this.validateUpdates(updates);
-    this.preferences = { ...this.preferences, ...validated };
-    this.savePreferences();
-  }
-
-  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
-    const validated: Partial<UserPreferences> = {};
-
-    if (updates.theme !== undefined) {
-      if (['light', 'dark', 'auto'].includes(updates.theme)) {
-        validated.theme = updates.theme;
-      }
-    }
-
-    if (updates.language !== undefined) {
-      if (typeof updates.language === 'string' && updates.language.length >= 2) {
-        validated.language = updates.language;
-      }
-    }
-
-    if (updates.notificationsEnabled !== undefined) {
-      if (typeof updates.notificationsEnabled === 'boolean') {
-        validated.notificationsEnabled = updates.notificationsEnabled;
-      }
-    }
-
-    if (updates.fontSize !== undefined) {
-      if (typeof updates.fontSize === 'number' && updates.fontSize >= 8 && updates.fontSize <= 32) {
-        validated.fontSize = updates.fontSize;
-      }
-    }
-
-    return validated;
-  }
-
   getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
   resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = { ...defaults };
+    this.preferences = defaults;
     this.savePreferences();
   }
 }
 
-const defaultPreferences: UserPreferences = {
-  theme: 'auto',
-  language: 'en',
-  notificationsEnabled: true,
-  fontSize: 14
-};
-
-export const userPrefsManager = new UserPreferencesManager(defaultPreferences);
+export { UserPreferencesManager, type UserPreferences };
