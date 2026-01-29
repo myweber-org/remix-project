@@ -17,7 +17,7 @@ class UserPreferencesManager {
     const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        return this.validatePreferences(JSON.parse(stored));
       } catch {
         return this.getDefaultPreferences();
       }
@@ -29,27 +29,48 @@ class UserPreferencesManager {
     return {
       theme: 'auto',
       notifications: true,
-      language: 'en',
-      fontSize: 14
+      language: 'en-US',
+      fontSize: 16
     };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...updates };
-    this.validatePreferences();
-    this.savePreferences();
+  private validatePreferences(data: unknown): UserPreferences {
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('Invalid preferences data');
+    }
+
+    const prefs = data as Record<string, unknown>;
+    
+    if (!['light', 'dark', 'auto'].includes(prefs.theme as string)) {
+      prefs.theme = 'auto';
+    }
+
+    if (typeof prefs.notifications !== 'boolean') {
+      prefs.notifications = true;
+    }
+
+    if (typeof prefs.language !== 'string' || prefs.language.length === 0) {
+      prefs.language = 'en-US';
+    }
+
+    if (typeof prefs.fontSize !== 'number' || prefs.fontSize < 8 || prefs.fontSize > 72) {
+      prefs.fontSize = 16;
+    }
+
+    return prefs as UserPreferences;
   }
 
-  private validatePreferences(): void {
-    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
-      this.preferences.theme = 'auto';
-    }
-    if (typeof this.preferences.notifications !== 'boolean') {
-      this.preferences.notifications = true;
-    }
-    if (typeof this.preferences.fontSize !== 'number' || this.preferences.fontSize < 8 || this.preferences.fontSize > 32) {
-      this.preferences.fontSize = 14;
-    }
+  public getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  public updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = {
+      ...this.preferences,
+      ...updates
+    };
+    this.preferences = this.validatePreferences(this.preferences);
+    this.savePreferences();
   }
 
   private savePreferences(): void {
@@ -59,13 +80,16 @@ class UserPreferencesManager {
     );
   }
 
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
-  }
-
-  resetToDefaults(): void {
+  public resetToDefaults(): void {
     this.preferences = this.getDefaultPreferences();
     this.savePreferences();
+  }
+
+  public isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return this.preferences.theme === 'dark';
   }
 }
 
