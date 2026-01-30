@@ -5,73 +5,82 @@ interface UserPreferences {
   fontSize: number;
 }
 
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
 class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
+  private readonly storageKey = 'user_preferences';
 
   constructor() {
     this.preferences = this.loadPreferences();
   }
 
   private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-    if (stored) {
-      try {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (stored) {
         const parsed = JSON.parse(stored);
         return this.validatePreferences(parsed);
-      } catch {
-        return this.getDefaultPreferences();
       }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
     }
-    return this.getDefaultPreferences();
+    return { ...DEFAULT_PREFERENCES };
   }
 
-  private validatePreferences(data: any): UserPreferences {
-    const defaultPrefs = this.getDefaultPreferences();
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      return { ...DEFAULT_PREFERENCES };
+    }
+
+    const prefs = data as Partial<UserPreferences>;
     
     return {
-      theme: ['light', 'dark', 'auto'].includes(data.theme) ? data.theme : defaultPrefs.theme,
-      language: typeof data.language === 'string' ? data.language : defaultPrefs.language,
-      notificationsEnabled: typeof data.notificationsEnabled === 'boolean' 
-        ? data.notificationsEnabled 
-        : defaultPrefs.notificationsEnabled,
-      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 24
-        ? data.fontSize
-        : defaultPrefs.fontSize
+      theme: this.isValidTheme(prefs.theme) ? prefs.theme : DEFAULT_PREFERENCES.theme,
+      language: typeof prefs.language === 'string' ? prefs.language : DEFAULT_PREFERENCES.language,
+      notificationsEnabled: typeof prefs.notificationsEnabled === 'boolean' 
+        ? prefs.notificationsEnabled 
+        : DEFAULT_PREFERENCES.notificationsEnabled,
+      fontSize: typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 32
+        ? prefs.fontSize
+        : DEFAULT_PREFERENCES.fontSize
     };
   }
 
-  private getDefaultPreferences(): UserPreferences {
-    return {
-      theme: 'auto',
-      language: 'en',
-      notificationsEnabled: true,
-      fontSize: 14
-    };
+  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
+    return theme === 'light' || theme === 'dark' || theme === 'auto';
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = {
-      ...this.preferences,
-      ...this.validatePreferences(updates)
-    };
+    const newPreferences = { ...this.preferences, ...updates };
+    this.preferences = this.validatePreferences(newPreferences);
     this.savePreferences();
   }
 
   private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY, 
-      JSON.stringify(this.preferences)
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 
   resetToDefaults(): void {
-    this.preferences = this.getDefaultPreferences();
+    this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
+  }
+
+  getTheme(): UserPreferences['theme'] {
+    return this.preferences.theme;
   }
 
   isDarkMode(): boolean {
@@ -82,4 +91,4 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export const preferencesManager = new UserPreferencesManager();
