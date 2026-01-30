@@ -1,28 +1,40 @@
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
-}
+import { z } from 'zod';
 
-class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  fontSize: z.number().min(8).max(32).default(14),
+  autoSave: z.boolean().default(true),
+  lastUpdated: z.date().optional()
+});
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+class PreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences_v1';
   private preferences: UserPreferences;
 
-  constructor(defaultPreferences: UserPreferences) {
-    this.preferences = this.loadPreferences() || defaultPreferences;
+  constructor() {
+    this.preferences = this.loadPreferences();
   }
 
-  private loadPreferences(): UserPreferences | null {
-    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(PreferencesManager.STORAGE_KEY);
+      if (!stored) return PreferenceSchema.parse({});
+
+      const parsed = JSON.parse(stored);
+      parsed.lastUpdated = parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined;
+      return PreferenceSchema.parse(parsed);
+    } catch {
+      return PreferenceSchema.parse({});
+    }
   }
 
   private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
+    const data = { ...this.preferences, lastUpdated: new Date() };
+    localStorage.setItem(PreferencesManager.STORAGE_KEY, JSON.stringify(data));
   }
 
   getPreferences(): UserPreferences {
@@ -30,28 +42,30 @@ class UserPreferencesManager {
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    this.preferences = { ...this.preferences, ...updates };
+    const validated = PreferenceSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
   }
 
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = { ...defaults };
+  resetToDefaults(): void {
+    this.preferences = PreferenceSchema.parse({});
     this.savePreferences();
   }
 
-  clearPreferences(): void {
-    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
-    this.preferences = this.getDefaultPreferences();
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
   }
 
-  private getDefaultPreferences(): UserPreferences {
-    return {
-      theme: 'auto',
-      language: 'en',
-      notificationsEnabled: true,
-      fontSize: 16
-    };
+  importPreferences(json: string): boolean {
+    try {
+      const parsed = JSON.parse(json);
+      this.preferences = PreferenceSchema.parse(parsed);
+      this.savePreferences();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
-export default UserPreferencesManager;
+export const preferencesManager = new PreferencesManager();
