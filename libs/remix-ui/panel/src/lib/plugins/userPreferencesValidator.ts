@@ -1,26 +1,58 @@
-import { z } from 'zod';
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+}
 
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notificationsEnabled: z.boolean().default(true),
-  itemsPerPage: z.number().int().min(5).max(100).default(25),
-  language: z.string().length(2).default('en'),
-  timezone: z.string().optional()
-});
-
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-export function validateUserPreferences(input: unknown): UserPreferences {
-  try {
-    return UserPreferencesSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid user preferences: ${error.errors.map(e => e.message).join(', ')}`);
-    }
-    throw error;
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
   }
 }
 
-export function getDefaultPreferences(): UserPreferences {
-  return UserPreferencesSchema.parse({});
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+  static validate(preferences: Partial<UserPreferences>): UserPreferences {
+    const errors: string[] = [];
+
+    if (!preferences.theme || !['light', 'dark', 'auto'].includes(preferences.theme)) {
+      errors.push('Theme must be one of: light, dark, auto');
+    }
+
+    if (preferences.notifications === undefined) {
+      errors.push('Notifications preference is required');
+    }
+
+    if (!preferences.language) {
+      errors.push('Language is required');
+    } else if (!this.SUPPORTED_LANGUAGES.includes(preferences.language)) {
+      errors.push(`Language must be one of: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
+    }
+
+    if (!preferences.timezone) {
+      errors.push('Timezone is required');
+    } else if (!this.VALID_TIMEZONES.test(preferences.timezone)) {
+      errors.push('Timezone must be in format: Area/Location (e.g., America/New_York)');
+    }
+
+    if (errors.length > 0) {
+      throw new PreferenceValidationError(`Validation failed:\n${errors.join('\n')}`);
+    }
+
+    return preferences as UserPreferences;
+  }
+
+  static sanitize(preferences: UserPreferences): UserPreferences {
+    return {
+      ...preferences,
+      language: preferences.language.toLowerCase(),
+      timezone: preferences.timezone.replace(/\s+/g, '_')
+    };
+  }
 }
+
+export { UserPreferences, UserPreferencesValidator, PreferenceValidationError };
