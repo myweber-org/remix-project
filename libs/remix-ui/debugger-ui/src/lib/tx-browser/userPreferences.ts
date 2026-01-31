@@ -54,4 +54,55 @@ function loadPreferences(): UserPreferences {
   }
 }
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notifications: boolean;
+  timezone: string;
+}
+
+function validateUserPreferences(prefs: UserPreferences): boolean {
+  const validThemes = ['light', 'dark', 'auto'];
+  const validTimezones = ['UTC', 'EST', 'PST', 'GMT'];
+
+  if (!validThemes.includes(prefs.theme)) {
+    console.error('Invalid theme selected');
+    return false;
+  }
+
+  if (typeof prefs.language !== 'string' || prefs.language.trim().length === 0) {
+    console.error('Language must be a non-empty string');
+    return false;
+  }
+
+  if (typeof prefs.notifications !== 'boolean') {
+    console.error('Notifications must be a boolean value');
+    return false;
+  }
+
+  if (!validTimezones.includes(prefs.timezone)) {
+    console.error('Invalid timezone specified');
+    return false;
+  }
+
+  return true;
+}
+
+function updateUserPreferences(newPrefs: Partial<UserPreferences>): UserPreferences {
+  const defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    language: 'en',
+    notifications: true,
+    timezone: 'UTC'
+  };
+
+  const mergedPreferences = { ...defaultPreferences, ...newPrefs };
+
+  if (validateUserPreferences(mergedPreferences)) {
+    console.log('Preferences updated successfully');
+    return mergedPreferences;
+  } else {
+    console.log('Failed to update preferences, using defaults');
+    return defaultPreferences;
+  }
+}
