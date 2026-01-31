@@ -55,4 +55,31 @@ function loadPreferences(): UserPreferences {
   }
 }
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };import { z } from 'zod';
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'system']).default('system'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('public'),
+    searchIndexing: z.boolean().default(true)
+  }),
+  language: z.string().min(2).default('en')
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export const DEFAULT_PREFERENCES: UserPreferences = UserPreferencesSchema.parse({});
+
+export function validatePreferences(input: unknown): UserPreferences {
+  return UserPreferencesSchema.parse(input);
+}
+
+export function mergePreferences(current: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const merged = { ...current, ...updates };
+  return validatePreferences(merged);
+}
