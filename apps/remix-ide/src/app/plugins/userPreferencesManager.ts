@@ -1,21 +1,23 @@
-
+typescript
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
+  notificationsEnabled: boolean;
   fontSize: number;
+  autoSave: boolean;
 }
 
-class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private static readonly DEFAULT_PREFERENCES: UserPreferences = {
-    theme: 'auto',
-    notifications: true,
-    language: 'en',
-    fontSize: 14
-  };
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14,
+  autoSave: true
+};
 
+class UserPreferencesManager {
   private preferences: UserPreferences;
+  private readonly storageKey = 'user_preferences';
 
   constructor() {
     this.preferences = this.loadPreferences();
@@ -23,7 +25,7 @@ class UserPreferencesManager {
 
   private loadPreferences(): UserPreferences {
     try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      const stored = localStorage.getItem(this.storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         return this.validatePreferences(parsed);
@@ -31,75 +33,70 @@ class UserPreferencesManager {
     } catch (error) {
       console.warn('Failed to load preferences from storage:', error);
     }
-    return { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+    return { ...DEFAULT_PREFERENCES };
   }
 
   private validatePreferences(data: unknown): UserPreferences {
-    const defaultPrefs = UserPreferencesManager.DEFAULT_PREFERENCES;
-    
     if (!data || typeof data !== 'object') {
-      return { ...defaultPrefs };
+      return { ...DEFAULT_PREFERENCES };
     }
 
-    const validated: UserPreferences = { ...defaultPrefs };
+    const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
 
     if ('theme' in data && ['light', 'dark', 'auto'].includes(data.theme as string)) {
       validated.theme = data.theme as UserPreferences['theme'];
     }
 
-    if ('notifications' in data && typeof data.notifications === 'boolean') {
-      validated.notifications = data.notifications;
+    if ('language' in data && typeof data.language === 'string') {
+      validated.language = data.language;
     }
 
-    if ('language' in data && typeof data.language === 'string' && data.language.length === 2) {
-      validated.language = data.language;
+    if ('notificationsEnabled' in data && typeof data.notificationsEnabled === 'boolean') {
+      validated.notificationsEnabled = data.notificationsEnabled;
     }
 
     if ('fontSize' in data && typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 32) {
       validated.fontSize = data.fontSize;
     }
 
+    if ('autoSave' in data && typeof data.autoSave === 'boolean') {
+      validated.autoSave = data.autoSave;
+    }
+
     return validated;
   }
 
-  public getPreferences(): UserPreferences {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): boolean {
+  updatePreferences(updates: Partial<UserPreferences>): void {
     const newPreferences = { ...this.preferences, ...updates };
-    const validated = this.validatePreferences(newPreferences);
+    this.preferences = this.validatePreferences(newPreferences);
+    this.savePreferences();
+  }
 
-    if (JSON.stringify(validated) !== JSON.stringify(this.preferences)) {
-      this.preferences = validated;
-      this.savePreferences();
-      return true;
-    }
-    return false;
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.savePreferences();
   }
 
   private savePreferences(): void {
     try {
-      localStorage.setItem(UserPreferencesManager.STORAGE_KEY, JSON.stringify(this.preferences));
+      localStorage.setItem(this.storageKey, JSON.stringify(this.preferences));
     } catch (error) {
       console.error('Failed to save preferences:', error);
     }
   }
 
-  public resetToDefaults(): void {
-    this.preferences = { ...UserPreferencesManager.DEFAULT_PREFERENCES };
-    this.savePreferences();
-  }
-
-  public exportPreferences(): string {
+  exportPreferences(): string {
     return JSON.stringify(this.preferences, null, 2);
   }
 
-  public importPreferences(jsonString: string): boolean {
+  importPreferences(jsonString: string): boolean {
     try {
       const parsed = JSON.parse(jsonString);
-      const validated = this.validatePreferences(parsed);
-      this.preferences = validated;
+      this.preferences = this.validatePreferences(parsed);
       this.savePreferences();
       return true;
     } catch (error) {
@@ -110,3 +107,4 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
+```
