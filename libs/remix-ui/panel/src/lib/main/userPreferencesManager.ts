@@ -197,4 +197,140 @@ class UserPreferencesManager {
 }
 
 export const preferencesManager = new UserPreferencesManager();
-```
+```interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private static readonly DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    language: 'en-US',
+    notificationsEnabled: true,
+    fontSize: 14
+  };
+
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage', error);
+    }
+    return { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+  }
+
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid preferences data');
+    }
+
+    const prefs = data as Partial<UserPreferences>;
+    
+    return {
+      theme: this.validateTheme(prefs.theme),
+      language: this.validateLanguage(prefs.language),
+      notificationsEnabled: this.validateBoolean(prefs.notificationsEnabled, true),
+      fontSize: this.validateFontSize(prefs.fontSize)
+    };
+  }
+
+  private validateTheme(theme: unknown): UserPreferences['theme'] {
+    if (theme === 'light' || theme === 'dark' || theme === 'auto') {
+      return theme;
+    }
+    return UserPreferencesManager.DEFAULT_PREFERENCES.theme;
+  }
+
+  private validateLanguage(language: unknown): string {
+    if (typeof language === 'string' && language.length >= 2) {
+      return language;
+    }
+    return UserPreferencesManager.DEFAULT_PREFERENCES.language;
+  }
+
+  private validateBoolean(value: unknown, defaultValue: boolean): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    return defaultValue;
+  }
+
+  private validateFontSize(size: unknown): number {
+    if (typeof size === 'number' && size >= 8 && size <= 32) {
+      return Math.round(size);
+    }
+    return UserPreferencesManager.DEFAULT_PREFERENCES.fontSize;
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const validatedUpdates: Partial<UserPreferences> = {};
+
+    if (updates.theme !== undefined) {
+      validatedUpdates.theme = this.validateTheme(updates.theme);
+    }
+
+    if (updates.language !== undefined) {
+      validatedUpdates.language = this.validateLanguage(updates.language);
+    }
+
+    if (updates.notificationsEnabled !== undefined) {
+      validatedUpdates.notificationsEnabled = this.validateBoolean(
+        updates.notificationsEnabled,
+        this.preferences.notificationsEnabled
+      );
+    }
+
+    if (updates.fontSize !== undefined) {
+      validatedUpdates.fontSize = this.validateFontSize(updates.fontSize);
+    }
+
+    this.preferences = {
+      ...this.preferences,
+      ...validatedUpdates
+    };
+
+    this.savePreferences();
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences to storage', error);
+    }
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+    this.savePreferences();
+  }
+
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return this.preferences.theme === 'dark';
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
