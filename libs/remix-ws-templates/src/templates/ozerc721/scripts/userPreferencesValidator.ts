@@ -1,45 +1,62 @@
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
-}
+import { z } from 'zod';
 
-class PreferenceValidator {
-  private static readonly MIN_FONT_SIZE = 12;
-  private static readonly MAX_FONT_SIZE = 24;
-  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'];
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  })
+}).strict();
 
-  static validate(prefs: UserPreferences): string[] {
-    const errors: string[] = [];
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      errors.push(`Invalid theme selection: ${prefs.theme}`);
-    }
+export class PreferencesManager {
+  private preferences: UserPreferences;
 
-    if (typeof prefs.notifications !== 'boolean') {
-      errors.push('Notifications must be a boolean value');
-    }
-
-    if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
-      errors.push(`Unsupported language: ${prefs.language}`);
-    }
-
-    if (prefs.fontSize < PreferenceValidator.MIN_FONT_SIZE || 
-        prefs.fontSize > PreferenceValidator.MAX_FONT_SIZE) {
-      errors.push(`Font size must be between ${PreferenceValidator.MIN_FONT_SIZE} and ${PreferenceValidator.MAX_FONT_SIZE}`);
-    }
-
-    return errors;
+  constructor(rawData?: Partial<UserPreferences>) {
+    this.preferences = this.validateAndMerge(rawData || {});
   }
 
-  static validateAndThrow(prefs: UserPreferences): void {
-    const errors = this.validate(prefs);
-    if (errors.length > 0) {
-      throw new Error(`Validation failed:\n${errors.join('\n')}`);
+  private validateAndMerge(data: Partial<UserPreferences>): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(data);
+    } catch (error) {
+      console.warn('Invalid preferences provided, using defaults:', error);
+      return UserPreferencesSchema.parse({});
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = this.validateAndMerge({
+      ...this.preferences,
+      ...updates
+    });
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  exportForStorage(): string {
+    return JSON.stringify(this.preferences);
+  }
+
+  static importFromStorage(storedData: string): PreferencesManager {
+    try {
+      const parsed = JSON.parse(storedData);
+      return new PreferencesManager(parsed);
+    } catch {
+      return new PreferencesManager();
     }
   }
 }
 
-export { UserPreferences, PreferenceValidator };
+export function createDefaultPreferences(): UserPreferences {
+  return UserPreferencesSchema.parse({});
+}
