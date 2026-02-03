@@ -1,81 +1,45 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
+class PreferenceValidator {
+  private static readonly MIN_FONT_SIZE = 12;
+  private static readonly MAX_FONT_SIZE = 24;
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'];
 
-const VALID_LANGUAGES = new Set(['en-US', 'es-ES', 'fr-FR', 'de-DE']);
-const MAX_RESULTS_PER_PAGE = 100;
+  static validate(prefs: UserPreferences): string[] {
+    const errors: string[] = [];
 
-function validatePreferences(input: unknown): UserPreferences {
-  if (!input || typeof input !== 'object') {
-    return DEFAULT_PREFERENCES;
+    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
+      errors.push(`Invalid theme selection: ${prefs.theme}`);
+    }
+
+    if (typeof prefs.notifications !== 'boolean') {
+      errors.push('Notifications must be a boolean value');
+    }
+
+    if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+      errors.push(`Unsupported language: ${prefs.language}`);
+    }
+
+    if (prefs.fontSize < PreferenceValidator.MIN_FONT_SIZE || 
+        prefs.fontSize > PreferenceValidator.MAX_FONT_SIZE) {
+      errors.push(`Font size must be between ${PreferenceValidator.MIN_FONT_SIZE} and ${PreferenceValidator.MAX_FONT_SIZE}`);
+    }
+
+    return errors;
   }
 
-  const partial = input as Partial<UserPreferences>;
-  const preferences: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-  if (partial.theme && ['light', 'dark', 'auto'].includes(partial.theme)) {
-    preferences.theme = partial.theme;
+  static validateAndThrow(prefs: UserPreferences): void {
+    const errors = this.validate(prefs);
+    if (errors.length > 0) {
+      throw new Error(`Validation failed: ${errors.join(', ')}`);
+    }
   }
-
-  if (typeof partial.notifications === 'boolean') {
-    preferences.notifications = partial.notifications;
-  }
-
-  if (typeof partial.language === 'string' && VALID_LANGUAGES.has(partial.language)) {
-    preferences.language = partial.language;
-  }
-
-  if (typeof partial.resultsPerPage === 'number') {
-    preferences.resultsPerPage = Math.max(1, Math.min(partial.resultsPerPage, MAX_RESULTS_PER_PAGE));
-  }
-
-  return preferences;
 }
 
-function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
-  const validatedUpdates = validatePreferences(updates);
-  return { ...existing, ...validatedUpdates };
-}
-
-export { UserPreferences, validatePreferences, mergePreferences, DEFAULT_PREFERENCES };import { z } from 'zod';
-
-const ThemeSchema = z.enum(['light', 'dark', 'system']);
-const NotificationPreferenceSchema = z.object({
-  email: z.boolean(),
-  push: z.boolean(),
-  inApp: z.boolean(),
-});
-
-export const UserPreferencesSchema = z.object({
-  userId: z.string().uuid(),
-  theme: ThemeSchema.default('system'),
-  notifications: NotificationPreferenceSchema.default({
-    email: true,
-    push: false,
-    inApp: true,
-  }),
-  language: z.string().min(2).max(5).default('en'),
-  timezone: z.string().default('UTC'),
-  autoSave: z.boolean().default(true),
-  fontSize: z.number().min(8).max(32).default(14),
-});
-
-export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-export function validatePreferences(input: unknown): UserPreferences {
-  return UserPreferencesSchema.parse(input);
-}
-
-export function safeValidatePreferences(input: unknown) {
-  return UserPreferencesSchema.safeParse(input);
-}
+export { UserPreferences, PreferenceValidator };
