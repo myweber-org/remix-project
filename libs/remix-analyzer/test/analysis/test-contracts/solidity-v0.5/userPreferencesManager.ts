@@ -2,79 +2,77 @@ interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
-const MAX_RESULTS_PER_PAGE = 100;
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...this.validatePreferences(initialPreferences || {}) };
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  private validatePreferences(prefs: Partial<UserPreferences>): Partial<UserPreferences> {
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const validatedUpdates = this.validateUpdates(updates);
+    this.preferences = { ...this.preferences, ...validatedUpdates };
+    this.savePreferences();
+  }
+
+  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
     const validated: Partial<UserPreferences> = {};
 
-    if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
-      validated.theme = prefs.theme;
+    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
+      validated.theme = updates.theme;
     }
 
-    if (typeof prefs.notifications === 'boolean') {
-      validated.notifications = prefs.notifications;
+    if (typeof updates.notifications === 'boolean') {
+      validated.notifications = updates.notifications;
     }
 
-    if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
-      validated.language = prefs.language;
+    if (updates.language && typeof updates.language === 'string' && updates.language.length >= 2) {
+      validated.language = updates.language;
     }
 
-    if (typeof prefs.resultsPerPage === 'number') {
-      validated.resultsPerPage = Math.max(
-        MIN_RESULTS_PER_PAGE,
-        Math.min(MAX_RESULTS_PER_PAGE, prefs.resultsPerPage)
-      );
+    if (updates.fontSize && updates.fontSize >= 8 && updates.fontSize <= 32) {
+      validated.fontSize = updates.fontSize;
     }
 
     return validated;
   }
 
-  updatePreferences(newPreferences: Partial<UserPreferences>): UserPreferences {
-    const validated = this.validatePreferences(newPreferences);
-    this.preferences = { ...this.preferences, ...validated };
-    return this.getPreferences();
+  private savePreferences(): void {
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
   }
 
-  getPreferences(): UserPreferences {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  resetToDefaults(): UserPreferences {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    return this.getPreferences();
-  }
-
-  exportPreferences(): string {
-    return JSON.stringify(this.preferences);
-  }
-
-  static importPreferences(jsonString: string): UserPreferencesManager {
-    try {
-      const parsed = JSON.parse(jsonString);
-      return new UserPreferencesManager(parsed);
-    } catch {
-      return new UserPreferencesManager();
-    }
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
+    this.savePreferences();
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+const defaultUserPreferences: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en',
+  fontSize: 14
+};
+
+export { UserPreferencesManager, defaultUserPreferences };
+export type { UserPreferences };
