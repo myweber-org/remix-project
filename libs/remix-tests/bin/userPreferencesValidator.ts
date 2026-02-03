@@ -138,3 +138,61 @@ const invalidPreferences: UserPreferences = {
 applyUserPreferences(validPreferences);
 applyUserPreferences(invalidPreferences);
 ```
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en',
+  fontSize: 14
+};
+
+function validatePreferences(input: unknown): UserPreferences {
+  if (!input || typeof input !== 'object') {
+    return DEFAULT_PREFERENCES;
+  }
+
+  const partial = input as Partial<UserPreferences>;
+  
+  return {
+    theme: isValidTheme(partial.theme) ? partial.theme : DEFAULT_PREFERENCES.theme,
+    notifications: typeof partial.notifications === 'boolean' 
+      ? partial.notifications 
+      : DEFAULT_PREFERENCES.notifications,
+    language: typeof partial.language === 'string' && partial.language.length === 2
+      ? partial.language
+      : DEFAULT_PREFERENCES.language,
+    fontSize: typeof partial.fontSize === 'number' && partial.fontSize >= 8 && partial.fontSize <= 24
+      ? partial.fontSize
+      : DEFAULT_PREFERENCES.fontSize
+  };
+}
+
+function isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
+  return theme === 'light' || theme === 'dark' || theme === 'auto';
+}
+
+export function loadUserPreferences(storageKey: string): UserPreferences {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return DEFAULT_PREFERENCES;
+    
+    const parsed = JSON.parse(stored);
+    return validatePreferences(parsed);
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+export function saveUserPreferences(storageKey: string, preferences: Partial<UserPreferences>): void {
+  const current = loadUserPreferences(storageKey);
+  const merged = { ...current, ...preferences };
+  const validated = validatePreferences(merged);
+  
+  localStorage.setItem(storageKey, JSON.stringify(validated));
+}
