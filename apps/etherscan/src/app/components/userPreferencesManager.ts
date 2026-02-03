@@ -80,4 +80,67 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { EventEmitter } from 'events';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+export class UserPreferencesManager extends EventEmitter {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences: UserPreferences) {
+    super();
+    this.preferences = this.loadPreferences() || defaultPreferences;
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const previous = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    
+    this.savePreferences();
+    
+    const changedKeys = Object.keys(updates) as (keyof UserPreferences)[];
+    changedKeys.forEach(key => {
+      if (previous[key] !== this.preferences[key]) {
+        this.emit(`preferenceChanged:${key}`, this.preferences[key], previous[key]);
+      }
+    });
+    
+    this.emit('preferencesUpdated', this.preferences, previous);
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
+    this.savePreferences();
+    this.emit('preferencesReset', this.preferences);
+  }
+
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+}
