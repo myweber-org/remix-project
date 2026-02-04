@@ -44,4 +44,50 @@ function updateUserPreferences(newPrefs: Partial<UserPreferences>): UserPreferen
   }
 
   return mergedPreferences;
+}interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
 }
+
+function validateUserPreferences(prefs: Partial<UserPreferences>): boolean {
+  const validThemes = ['light', 'dark', 'auto'];
+  
+  if (prefs.theme && !validThemes.includes(prefs.theme)) {
+    return false;
+  }
+  
+  if (prefs.fontSize && (prefs.fontSize < 8 || prefs.fontSize > 72)) {
+    return false;
+  }
+  
+  if (prefs.language && typeof prefs.language !== 'string') {
+    return false;
+  }
+  
+  if (prefs.notificationsEnabled !== undefined && typeof prefs.notificationsEnabled !== 'boolean') {
+    return false;
+  }
+  
+  return true;
+}
+
+function applyUserPreferences(prefs: UserPreferences): void {
+  if (prefs.theme === 'dark') {
+    document.documentElement.classList.add('dark-theme');
+  } else if (prefs.theme === 'light') {
+    document.documentElement.classList.remove('dark-theme');
+  }
+  
+  console.log(`Preferences applied: ${JSON.stringify(prefs)}`);
+}
+
+const defaultPreferences: UserPreferences = {
+  theme: 'auto',
+  language: 'en',
+  notificationsEnabled: true,
+  fontSize: 16
+};
+
+export { UserPreferences, validateUserPreferences, applyUserPreferences, defaultPreferences };
