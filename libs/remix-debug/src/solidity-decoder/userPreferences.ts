@@ -9,25 +9,28 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  resultsPerPage: 10
+  resultsPerPage: 20
 };
 
 const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const VALID_RESULTS_PER_PAGE = [5, 10, 25, 50];
 
 function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const validated: UserPreferences = { ...DEFAULT_PREFERENCES, ...prefs };
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
 
-  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
-    validated.theme = DEFAULT_PREFERENCES.theme;
+  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
+    validated.theme = prefs.theme;
   }
 
-  if (!VALID_LANGUAGES.includes(validated.language)) {
-    validated.language = DEFAULT_PREFERENCES.language;
+  if (typeof prefs.notifications === 'boolean') {
+    validated.notifications = prefs.notifications;
   }
 
-  if (!VALID_RESULTS_PER_PAGE.includes(validated.resultsPerPage)) {
-    validated.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+  if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
+    validated.language = prefs.language;
+  }
+
+  if (prefs.resultsPerPage && Number.isInteger(prefs.resultsPerPage) && prefs.resultsPerPage > 0 && prefs.resultsPerPage <= 100) {
+    validated.resultsPerPage = prefs.resultsPerPage;
   }
 
   return validated;
