@@ -513,4 +513,83 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  }),
+  createdAt: z.date().default(() => new Date()),
+  updatedAt: z.date().default(() => new Date())
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+  private storageKey: string;
+
+  constructor(userId: string, initialData?: Partial<UserPreferences>) {
+    this.storageKey = `user_preferences_${userId}`;
+    this.preferences = this.loadPreferences(initialData);
+  }
+
+  private loadPreferences(initialData?: Partial<UserPreferences>): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        parsed.createdAt = new Date(parsed.createdAt);
+        parsed.updatedAt = new Date(parsed.updatedAt);
+        return UserPreferencesSchema.parse(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load stored preferences:', error);
+    }
+
+    const defaults = UserPreferencesSchema.parse(initialData || {});
+    this.savePreferences(defaults);
+    return defaults;
+  }
+
+  private savePreferences(prefs: UserPreferences): void {
+    this.preferences = prefs;
+    this.preferences.updatedAt = new Date();
+    localStorage.setItem(this.storageKey, JSON.stringify(this.preferences));
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const merged = { ...this.preferences, ...updates };
+    const validated = UserPreferencesSchema.parse(merged);
+    this.savePreferences(validated);
+    return validated;
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): UserPreferences {
+    const defaults = UserPreferencesSchema.parse({});
+    this.savePreferences(defaults);
+    return defaults;
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  static validateImport(data: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(data);
+  }
+}
+
+export { UserPreferencesManager, UserPreferencesSchema };
+export type { UserPreferences };
