@@ -54,4 +54,56 @@ export function mergePreferences(
 ): UserPreferences {
   const validatedUpdates = PreferencesValidator.validatePartial(updates);
   return { ...existing, ...validatedUpdates };
+}import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.object({
+    email: z.boolean(),
+    push: z.boolean(),
+    frequency: z.enum(['instant', 'daily', 'weekly']).optional()
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'private', 'friends']),
+    dataSharing: z.boolean().default(false)
+  })
+}).refine(
+  (data) => !(data.privacy.dataSharing && data.privacy.profileVisibility === 'private'),
+  {
+    message: 'Cannot share data while profile is private',
+    path: ['privacy']
+  }
+);
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+export function validatePreferences(input: unknown): UserPreferences {
+  try {
+    return PreferenceSchema.parse(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const formattedErrors = error.errors.map(err => ({
+        field: err.path.join('.'),
+        message: err.message
+      }));
+      throw new ValidationError('Invalid preferences', formattedErrors);
+    }
+    throw error;
+  }
+}
+
+class ValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly details: Array<{ field: string; message: string }>
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+export function formatValidationErrors(err: ValidationError): string {
+  return err.details
+    .map(detail => `Field "${detail.field}": ${detail.message}`)
+    .join('\n');
 }
