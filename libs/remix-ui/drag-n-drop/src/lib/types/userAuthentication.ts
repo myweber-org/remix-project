@@ -1,10 +1,11 @@
+
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 interface UserPayload {
   userId: string;
-  email: string;
   role: string;
+  email: string;
 }
 
 declare global {
@@ -24,21 +25,13 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const secretKey = process.env.JWT_SECRET;
-  if (!secretKey) {
-    res.status(500).json({ error: 'Server configuration error' });
-    return;
-  }
-
-  jwt.verify(token, secretKey, (err, decoded) => {
-    if (err) {
-      res.status(403).json({ error: 'Invalid or expired token' });
-      return;
-    }
-
-    req.user = decoded as UserPayload;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as UserPayload;
+    req.user = decoded;
     next();
-  });
+  } catch (error) {
+    res.status(403).json({ error: 'Invalid or expired token' });
+  }
 };
 
 export const authorizeRole = (allowedRoles: string[]) => {
