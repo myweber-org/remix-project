@@ -107,4 +107,85 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
-```
+```interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 32;
+
+class PreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
+  }
+
+  private validateAndFixPreferences(): void {
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (this.preferences.fontSize < MIN_FONT_SIZE || this.preferences.fontSize > MAX_FONT_SIZE) {
+      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const previousPreferences = { ...this.preferences };
+    
+    this.preferences = { ...this.preferences, ...updates };
+    this.validateAndFixPreferences();
+
+    if (this.hasSignificantChange(previousPreferences, this.preferences)) {
+      this.persistPreferences();
+    }
+  }
+
+  private hasSignificantChange(oldPrefs: UserPreferences, newPrefs: UserPreferences): boolean {
+    return oldPrefs.theme !== newPrefs.theme ||
+           oldPrefs.language !== newPrefs.language ||
+           Math.abs(oldPrefs.fontSize - newPrefs.fontSize) >= 2;
+  }
+
+  private persistPreferences(): void {
+    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.persistPreferences();
+  }
+
+  static loadFromStorage(): PreferencesManager {
+    try {
+      const stored = localStorage.getItem('userPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new PreferencesManager(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    
+    return new PreferencesManager();
+  }
+}
+
+export { PreferencesManager, type UserPreferences };
