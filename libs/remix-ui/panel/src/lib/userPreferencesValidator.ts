@@ -5,13 +5,19 @@ export const UserPreferencesSchema = z.object({
   notifications: z.object({
     email: z.boolean().default(true),
     push: z.boolean().default(false),
-    frequency: z.enum(['immediate', 'daily', 'weekly']).default('immediate')
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
   }),
   privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
     searchIndexing: z.boolean().default(true)
-  })
-}).strict();
+  }).default({})
+}).refine(
+  (data) => !(data.notifications.push && data.privacy.profileVisibility === 'private'),
+  {
+    message: 'Push notifications require public or friends profile visibility',
+    path: ['notifications.push']
+  }
+);
 
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
@@ -21,18 +27,39 @@ export class PreferencesValidator {
       return UserPreferencesSchema.parse(input);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`Invalid preferences: ${error.errors.map(e => `${e.path}: ${e.message}`).join(', ')}`);
+        const formattedErrors = error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }));
+        throw new PreferencesValidationError('Invalid preferences configuration', formattedErrors);
       }
       throw error;
     }
   }
 
-  static getDefaults(): UserPreferences {
-    return UserPreferencesSchema.parse({});
+  static validatePartial(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const schema = UserPreferencesSchema.partial();
+    return schema.parse(updates);
   }
+}
 
-  static mergeWithDefaults(partial: Partial<UserPreferences>): UserPreferences {
-    const defaults = this.getDefaults();
-    return this.validate({ ...defaults, ...partial });
+export class PreferencesValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly details: Array<{ field: string; message: string }>
+  ) {
+    super(message);
+    this.name = 'PreferencesValidationError';
   }
+}
+
+export function sanitizePreferences(prefs: UserPreferences): UserPreferences {
+  const { privacy, ...rest } = prefs;
+  return {
+    ...rest,
+    privacy: {
+      ...privacy,
+      searchIndexing: privacy.profileVisibility === 'private' ? false : privacy.searchIndexing
+    }
+  };
 }
