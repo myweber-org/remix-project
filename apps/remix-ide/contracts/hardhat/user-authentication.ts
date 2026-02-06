@@ -53,4 +53,63 @@ export const authorizeRole = (...allowedRoles: string[]) => {
 
     next();
   };
-};
+};import { sign, verify, SignOptions, VerifyOptions } from 'jsonwebtoken';
+
+interface UserPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
+
+interface TokenConfig {
+  secret: string;
+  expiresIn: string;
+}
+
+class AuthenticationService {
+  private readonly config: TokenConfig;
+
+  constructor(config: TokenConfig) {
+    this.config = config;
+  }
+
+  generateToken(userPayload: UserPayload): string {
+    const options: SignOptions = {
+      expiresIn: this.config.expiresIn,
+      algorithm: 'HS256'
+    };
+
+    return sign(userPayload, this.config.secret, options);
+  }
+
+  validateToken(token: string): UserPayload | null {
+    try {
+      const options: VerifyOptions = {
+        algorithms: ['HS256']
+      };
+
+      const decoded = verify(token, this.config.secret, options) as UserPayload;
+      return decoded;
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      return null;
+    }
+  }
+
+  extractTokenFromHeader(authHeader: string | undefined): string | null {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+    return authHeader.substring(7);
+  }
+
+  authenticateRequest(authHeader: string | undefined): UserPayload | null {
+    const token = this.extractTokenFromHeader(authHeader);
+    if (!token) {
+      return null;
+    }
+    return this.validateToken(token);
+  }
+}
+
+export { AuthenticationService, UserPayload, TokenConfig };
