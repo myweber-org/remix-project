@@ -94,4 +94,69 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  itemsPerPage: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
+  }
+
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.warn('Failed to load preferences from localStorage:', error);
+      return null;
+    }
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.warn('Failed to save preferences to localStorage:', error);
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.savePreferences();
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
+    this.savePreferences();
+  }
+
+  clearPreferences(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+    this.preferences = this.getDefaultPreferences();
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'light',
+      language: 'en',
+      notificationsEnabled: true,
+      itemsPerPage: 10
+    };
+  }
+}
+
+export default UserPreferencesManager;
