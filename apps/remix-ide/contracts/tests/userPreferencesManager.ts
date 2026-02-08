@@ -141,4 +141,92 @@ const defaultPreferences: UserPreferences = {
   fontSize: 14
 };
 
-export const userPrefsManager = new UserPreferencesManager(defaultPreferences);
+export const userPrefsManager = new UserPreferencesManager(defaultPreferences);import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  })
+}).strict();
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const DEFAULT_PREFERENCES: UserPreferences = UserPreferencesSchema.parse({});
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+  private readonly storageKey: string;
+
+  constructor(userId: string) {
+    this.storageKey = `user_preferences_${userId}`;
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (!stored) return DEFAULT_PREFERENCES;
+
+      const parsed = JSON.parse(stored);
+      return UserPreferencesSchema.parse(parsed);
+    } catch (error) {
+      console.warn('Failed to load preferences, using defaults:', error);
+      return DEFAULT_PREFERENCES;
+    }
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const merged = { ...this.preferences, ...updates };
+    
+    try {
+      this.preferences = UserPreferencesSchema.parse(merged);
+      this.savePreferences();
+      return this.getPreferences();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(`Invalid preferences: ${error.errors.map(e => e.message).join(', ')}`);
+      }
+      throw error;
+    }
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = DEFAULT_PREFERENCES;
+    this.savePreferences();
+    return this.getPreferences();
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  static importPreferences(json: string): UserPreferences {
+    try {
+      const parsed = JSON.parse(json);
+      return UserPreferencesSchema.parse(parsed);
+    } catch (error) {
+      throw new Error('Invalid preferences JSON');
+    }
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
