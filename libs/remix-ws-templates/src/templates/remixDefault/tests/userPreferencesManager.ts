@@ -240,4 +240,78 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'app_user_preferences';
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return UserPreferencesSchema.parse({});
+
+      const parsed = JSON.parse(stored);
+      return UserPreferencesSchema.parse(parsed);
+    } catch {
+      return UserPreferencesSchema.parse({});
+    }
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    try {
+      const validated = UserPreferencesSchema.partial().parse(updates);
+      this.preferences = { ...this.preferences, ...validated };
+      this.savePreferences();
+      return this.getPreferences();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        throw new Error(`Invalid preferences: ${error.errors.map(e => e.message).join(', ')}`);
+      }
+      throw error;
+    }
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = UserPreferencesSchema.parse({});
+    this.savePreferences();
+    return this.getPreferences();
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  importPreferences(jsonString: string): UserPreferences {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return this.updatePreferences(parsed);
+    } catch (error) {
+      throw new Error('Failed to import preferences: Invalid JSON format');
+    }
+  }
+}
+
+export const userPreferencesManager = new UserPreferencesManager();
