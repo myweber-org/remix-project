@@ -54,4 +54,42 @@ class PreferencesValidator {
 }
 
 export { UserPreferences, PreferencesValidator };
-```
+```import { z } from 'zod';
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'system']).default('system'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  }),
+  language: z.string().min(2).max(5).default('en')
+}).strict();
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export function validateUserPreferences(input: unknown): UserPreferences {
+  return UserPreferencesSchema.parse(input);
+}
+
+export function sanitizeUserPreferences(input: Partial<UserPreferences>): UserPreferences {
+  const defaults: UserPreferences = {
+    theme: 'system',
+    notifications: {
+      email: true,
+      push: false,
+      frequency: 'daily'
+    },
+    privacy: {
+      profileVisibility: 'friends',
+      searchIndexing: true
+    },
+    language: 'en'
+  };
+  
+  return UserPreferencesSchema.parse({ ...defaults, ...input });
+}
