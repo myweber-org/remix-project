@@ -541,4 +541,60 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'app_user_preferences';
+
+export class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return UserPreferencesSchema.parse(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences:', error);
+    }
+    return UserPreferencesSchema.parse({});
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const merged = { ...this.preferences, ...updates };
+    const validated = UserPreferencesSchema.parse(merged);
+    
+    this.preferences = validated;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(validated));
+    
+    return validated;
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = UserPreferencesSchema.parse({});
+    localStorage.removeItem(STORAGE_KEY);
+    return this.preferences;
+  }
+
+  validatePreferences(input: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(input);
+  }
+}
