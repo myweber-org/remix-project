@@ -268,4 +268,64 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, DEFAULT_PREFERENCES, VALID_LANGUAGES };
+export { UserPreferencesManager, DEFAULT_PREFERENCES, VALID_LANGUAGES };import { z } from 'zod';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+}
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.boolean(),
+  language: z.string().min(2).max(5),
+  timezone: z.string().min(1),
+});
+
+export class PreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const newPreferences = { ...this.preferences, ...updates };
+    const validation = UserPreferencesSchema.safeParse(newPreferences);
+
+    if (!validation.success) {
+      throw new Error(`Invalid preferences: ${validation.error.message}`);
+    }
+
+    this.preferences = validation.data;
+    this.savePreferences();
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = defaults;
+    this.savePreferences();
+  }
+
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(PreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(
+      PreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
+  }
+}
