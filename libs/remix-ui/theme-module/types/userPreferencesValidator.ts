@@ -1,49 +1,40 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
-  fontSize: number;
   language: string;
+  timezone: string;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  fontSize: 14,
-  language: 'en-US'
-};
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
 
-function validatePreferences(input: unknown): UserPreferences {
-  if (!input || typeof input !== 'object') {
-    return DEFAULT_PREFERENCES;
+const validateUserPreferences = (prefs: UserPreferences): void => {
+  const validThemes = ['light', 'dark', 'auto'];
+  
+  if (!validThemes.includes(prefs.theme)) {
+    throw new PreferenceValidationError(
+      `Invalid theme '${prefs.theme}'. Must be one of: ${validThemes.join(', ')}`
+    );
   }
 
-  const partial = input as Partial<UserPreferences>;
-  
-  return {
-    theme: isValidTheme(partial.theme) ? partial.theme : DEFAULT_PREFERENCES.theme,
-    notifications: typeof partial.notifications === 'boolean' 
-      ? partial.notifications 
-      : DEFAULT_PREFERENCES.notifications,
-    fontSize: typeof partial.fontSize === 'number' && partial.fontSize >= 8 && partial.fontSize <= 32
-      ? partial.fontSize
-      : DEFAULT_PREFERENCES.fontSize,
-    language: typeof partial.language === 'string' && partial.language.length >= 2
-      ? partial.language
-      : DEFAULT_PREFERENCES.language
-  };
-}
+  if (typeof prefs.notifications !== 'boolean') {
+    throw new PreferenceValidationError('Notifications must be a boolean value');
+  }
 
-function isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
-  return theme === 'light' || theme === 'dark' || theme === 'auto';
-}
+  if (!prefs.language || prefs.language.trim().length === 0) {
+    throw new PreferenceValidationError('Language cannot be empty');
+  }
 
-function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
-  const validatedUpdates = validatePreferences(updates);
-  
-  return {
-    ...existing,
-    ...validatedUpdates
-  };
-}
+  const timezoneRegex = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+  if (!timezoneRegex.test(prefs.timezone)) {
+    throw new PreferenceValidationError(
+      `Invalid timezone format '${prefs.timezone}'. Expected format: Area/Location`
+    );
+  }
+};
 
-export { UserPreferences, validatePreferences, mergePreferences, DEFAULT_PREFERENCES };
+export { UserPreferences, PreferenceValidationError, validateUserPreferences };
