@@ -69,4 +69,76 @@ class UserPreferencesValidator {
 }
 
 export { UserPreferencesValidator, PreferenceValidationError };
-export type { UserPreferences };
+export type { UserPreferences };import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    dataSharing: z.boolean().default(false)
+  }),
+  language: z.string().min(2).max(5).default('en')
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
+      }
+      throw error;
+    }
+  }
+
+  static getDefaultPreferences(): UserPreferences {
+    return UserPreferencesSchema.parse({});
+  }
+
+  static mergePreferences(
+    existing: Partial<UserPreferences>,
+    updates: Partial<UserPreferences>
+  ): UserPreferences {
+    const merged = { ...existing, ...updates };
+    return this.validate(merged);
+  }
+}
+
+export function createPreferencesGuard() {
+  let preferences: UserPreferences = PreferencesValidator.getDefaultPreferences();
+
+  return {
+    get current(): UserPreferences {
+      return { ...preferences };
+    },
+
+    update(newPreferences: Partial<UserPreferences>): UserPreferences {
+      preferences = PreferencesValidator.mergePreferences(preferences, newPreferences);
+      return this.current;
+    },
+
+    reset(): void {
+      preferences = PreferencesValidator.getDefaultPreferences();
+    },
+
+    isValid(input: unknown): boolean {
+      try {
+        PreferencesValidator.validate(input);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  };
+}
