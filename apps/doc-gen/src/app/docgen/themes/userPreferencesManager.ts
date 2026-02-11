@@ -34,68 +34,47 @@ class UserPreferencesManager {
     };
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid preferences data');
-    }
+  private validatePreferences(data: any): UserPreferences {
+    const validThemes = ['light', 'dark', 'auto'];
+    const theme = validThemes.includes(data.theme) ? data.theme : 'auto';
+    const notifications = typeof data.notifications === 'boolean' ? data.notifications : true;
+    const language = typeof data.language === 'string' ? data.language : 'en';
+    const fontSize = typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 24 
+      ? data.fontSize 
+      : 14;
 
-    const prefs = data as Record<string, unknown>;
-    
-    const theme = prefs.theme;
-    if (!['light', 'dark', 'auto'].includes(theme as string)) {
-      throw new Error('Invalid theme value');
-    }
-
-    const notifications = prefs.notifications;
-    if (typeof notifications !== 'boolean') {
-      throw new Error('Invalid notifications value');
-    }
-
-    const language = prefs.language;
-    if (typeof language !== 'string' || language.length !== 2) {
-      throw new Error('Invalid language code');
-    }
-
-    const fontSize = prefs.fontSize;
-    if (typeof fontSize !== 'number' || fontSize < 8 || fontSize > 32) {
-      throw new Error('Invalid font size');
-    }
-
-    return {
-      theme: theme as 'light' | 'dark' | 'auto',
-      notifications: notifications as boolean,
-      language: language as string,
-      fontSize: fontSize as number
-    };
+    return { theme, notifications, language, fontSize };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): void {
-    const newPreferences = { ...this.preferences, ...updates };
-    this.preferences = this.validatePreferences(newPreferences);
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = {
+      ...this.preferences,
+      ...this.validatePreferences(updates)
+    };
     this.savePreferences();
   }
 
   private savePreferences(): void {
     localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
+      UserPreferencesManager.STORAGE_KEY, 
       JSON.stringify(this.preferences)
     );
   }
 
-  public getPreferences(): UserPreferences {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  public resetToDefaults(): void {
+  resetToDefaults(): void {
     this.preferences = this.getDefaultPreferences();
     this.savePreferences();
   }
 
-  public getTheme(): 'light' | 'dark' {
+  isDarkMode(): boolean {
     if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return this.preferences.theme;
+    return this.preferences.theme === 'dark';
   }
 }
 
