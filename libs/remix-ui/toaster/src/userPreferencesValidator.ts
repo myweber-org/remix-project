@@ -1,52 +1,52 @@
 import { z } from 'zod';
 
-const preferenceSchema = z.object({
+const UserPreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).default('auto'),
   notifications: z.object({
     email: z.boolean().default(true),
     push: z.boolean().default(false),
-    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
   }),
   privacy: z.object({
-    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
     searchIndexing: z.boolean().default(true)
   }),
   language: z.string().min(2).max(5).default('en')
-}).refine(
-  (data) => !(data.privacy.profileVisibility === 'public' && data.privacy.searchIndexing === false),
-  {
-    message: 'Public profiles must be searchable',
-    path: ['privacy', 'searchIndexing']
-  }
-);
+});
 
-export type UserPreferences = z.infer<typeof preferenceSchema>;
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-export function validatePreferences(input: unknown): UserPreferences {
+export function validateUserPreferences(input: unknown): UserPreferences {
   try {
-    return preferenceSchema.parse(input);
+    return UserPreferencesSchema.parse(input);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const formattedErrors = error.errors.map(err => ({
-        field: err.path.join('.'),
-        message: err.message
-      }));
-      throw new PreferenceValidationError('Invalid preferences configuration', formattedErrors);
+      const errorMessages = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
     }
     throw error;
   }
 }
 
-export class PreferenceValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly details: Array<{ field: string; message: string }>
-  ) {
-    super(message);
-    this.name = 'PreferenceValidationError';
+export function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const merged = { ...existing };
+  
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        merged[key as keyof UserPreferences] = {
+          ...merged[key as keyof UserPreferences],
+          ...value
+        } as any;
+      } else {
+        merged[key as keyof UserPreferences] = value as any;
+      }
+    }
   }
+  
+  return validateUserPreferences(merged);
 }
 
 export function getDefaultPreferences(): UserPreferences {
-  return preferenceSchema.parse({});
+  return UserPreferencesSchema.parse({});
 }
