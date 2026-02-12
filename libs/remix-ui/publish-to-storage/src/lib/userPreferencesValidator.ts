@@ -34,4 +34,106 @@ class PreferenceValidator {
   }
 }
 
-export { UserPreferences, PreferenceValidator };
+export { UserPreferences, PreferenceValidator };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+  itemsPerPage: number;
+}
+
+class PreferenceValidationError extends Error {
+  constructor(
+    public field: string,
+    public value: unknown,
+    public reason: string
+  ) {
+    super(`Invalid preference value for ${field}: ${value} - ${reason}`);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+  static validate(preferences: Partial<UserPreferences>): UserPreferences {
+    const validated: UserPreferences = {
+      theme: this.validateTheme(preferences.theme),
+      notifications: this.validateNotifications(preferences.notifications),
+      language: this.validateLanguage(preferences.language),
+      timezone: this.validateTimezone(preferences.timezone),
+      itemsPerPage: this.validateItemsPerPage(preferences.itemsPerPage),
+    };
+
+    return validated;
+  }
+
+  private static validateTheme(theme?: unknown): UserPreferences['theme'] {
+    if (theme === undefined) return 'auto';
+    
+    if (typeof theme !== 'string') {
+      throw new PreferenceValidationError('theme', theme, 'must be a string');
+    }
+
+    if (!['light', 'dark', 'auto'].includes(theme)) {
+      throw new PreferenceValidationError('theme', theme, 'must be one of: light, dark, auto');
+    }
+
+    return theme as UserPreferences['theme'];
+  }
+
+  private static validateNotifications(notifications?: unknown): boolean {
+    if (notifications === undefined) return true;
+    
+    if (typeof notifications !== 'boolean') {
+      throw new PreferenceValidationError('notifications', notifications, 'must be a boolean');
+    }
+
+    return notifications;
+  }
+
+  private static validateLanguage(language?: unknown): string {
+    if (language === undefined) return 'en';
+    
+    if (typeof language !== 'string') {
+      throw new PreferenceValidationError('language', language, 'must be a string');
+    }
+
+    if (!this.SUPPORTED_LANGUAGES.includes(language)) {
+      throw new PreferenceValidationError('language', language, `must be one of: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
+    }
+
+    return language;
+  }
+
+  private static validateTimezone(timezone?: unknown): string {
+    if (timezone === undefined) return 'UTC';
+    
+    if (typeof timezone !== 'string') {
+      throw new PreferenceValidationError('timezone', timezone, 'must be a string');
+    }
+
+    if (!this.VALID_TIMEZONES.test(timezone)) {
+      throw new PreferenceValidationError('timezone', timezone, 'must be in format: Area/Location');
+    }
+
+    return timezone;
+  }
+
+  private static validateItemsPerPage(itemsPerPage?: unknown): number {
+    if (itemsPerPage === undefined) return 25;
+    
+    if (typeof itemsPerPage !== 'number') {
+      throw new PreferenceValidationError('itemsPerPage', itemsPerPage, 'must be a number');
+    }
+
+    if (!Number.isInteger(itemsPerPage) || itemsPerPage < 1 || itemsPerPage > 100) {
+      throw new PreferenceValidationError('itemsPerPage', itemsPerPage, 'must be an integer between 1 and 100');
+    }
+
+    return itemsPerPage;
+  }
+}
+
+export { UserPreferences, UserPreferencesValidator, PreferenceValidationError };
