@@ -1,38 +1,61 @@
-import { z } from 'zod';
 
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
-});
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
 
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-export function validateUserPreferences(input: unknown): UserPreferences {
-  try {
-    return UserPreferencesSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid preferences: ${error.errors.map(e => `${e.path}: ${e.message}`).join(', ')}`);
-    }
-    throw error;
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
   }
 }
 
-export function mergeWithDefaults(partialPrefs: Partial<UserPreferences>): UserPreferences {
-  const defaultPrefs = UserPreferencesSchema.parse({});
-  return { ...defaultPrefs, ...partialPrefs };
+function validateUserPreferences(prefs: unknown): UserPreferences {
+  if (typeof prefs !== 'object' || prefs === null) {
+    throw new PreferenceValidationError('Preferences must be an object');
+  }
+
+  const preferences = prefs as Record<string, unknown>;
+
+  if (!['light', 'dark', 'auto'].includes(preferences.theme as string)) {
+    throw new PreferenceValidationError('Theme must be light, dark, or auto');
+  }
+
+  if (typeof preferences.notifications !== 'boolean') {
+    throw new PreferenceValidationError('Notifications must be a boolean value');
+  }
+
+  if (typeof preferences.language !== 'string' || preferences.language.length === 0) {
+    throw new PreferenceValidationError('Language must be a non-empty string');
+  }
+
+  const itemsPerPage = Number(preferences.itemsPerPage);
+  if (!Number.isInteger(itemsPerPage) || itemsPerPage < 5 || itemsPerPage > 100) {
+    throw new PreferenceValidationError('Items per page must be an integer between 5 and 100');
+  }
+
+  return {
+    theme: preferences.theme as 'light' | 'dark' | 'auto',
+    notifications: preferences.notifications as boolean,
+    language: preferences.language as string,
+    itemsPerPage: itemsPerPage
+  };
 }
 
-export function isThemeDark(prefs: UserPreferences, systemDark: boolean): boolean {
-  if (prefs.theme === 'auto') return systemDark;
-  return prefs.theme === 'dark';
+function applyUserPreferences(prefs: unknown): void {
+  try {
+    const validatedPrefs = validateUserPreferences(prefs);
+    console.log('Applying preferences:', validatedPrefs);
+  } catch (error) {
+    if (error instanceof PreferenceValidationError) {
+      console.error('Invalid preferences:', error.message);
+    } else {
+      console.error('Unexpected error:', error);
+    }
+  }
 }
+
+export { validateUserPreferences, applyUserPreferences, PreferenceValidationError };
