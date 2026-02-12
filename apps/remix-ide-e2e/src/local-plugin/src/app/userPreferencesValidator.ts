@@ -89,3 +89,73 @@ export function mergePreferences(
   const merged = { ...existing, ...updates };
   return validateUserPreferences(merged);
 }
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  itemsPerPage: 25
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_ITEMS_PER_PAGE = 5;
+const MAX_ITEMS_PER_PAGE = 100;
+
+class PreferencesValidationError extends Error {
+  constructor(message: string, public field?: string) {
+    super(message);
+    this.name = 'PreferencesValidationError';
+  }
+}
+
+function validateUserPreferences(input: unknown): UserPreferences {
+  if (typeof input !== 'object' || input === null) {
+    throw new PreferencesValidationError('Preferences must be an object');
+  }
+
+  const preferences = { ...DEFAULT_PREFERENCES, ...input } as Partial<UserPreferences>;
+  const errors: string[] = [];
+
+  if (preferences.theme !== undefined && !['light', 'dark', 'auto'].includes(preferences.theme)) {
+    errors.push(`Theme must be one of: light, dark, auto`);
+  }
+
+  if (preferences.notifications !== undefined && typeof preferences.notifications !== 'boolean') {
+    errors.push('Notifications must be a boolean value');
+  }
+
+  if (preferences.language !== undefined) {
+    if (typeof preferences.language !== 'string') {
+      errors.push('Language must be a string');
+    } else if (!VALID_LANGUAGES.includes(preferences.language)) {
+      errors.push(`Language must be one of: ${VALID_LANGUAGES.join(', ')}`);
+    }
+  }
+
+  if (preferences.itemsPerPage !== undefined) {
+    if (typeof preferences.itemsPerPage !== 'number') {
+      errors.push('Items per page must be a number');
+    } else if (preferences.itemsPerPage < MIN_ITEMS_PER_PAGE || preferences.itemsPerPage > MAX_ITEMS_PER_PAGE) {
+      errors.push(`Items per page must be between ${MIN_ITEMS_PER_PAGE} and ${MAX_ITEMS_PER_PAGE}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new PreferencesValidationError(`Invalid preferences: ${errors.join('; ')}`);
+  }
+
+  return preferences as UserPreferences;
+}
+
+function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const validatedUpdates = validateUserPreferences(updates);
+  return { ...existing, ...validatedUpdates };
+}
+
+export { UserPreferences, validateUserPreferences, mergePreferences, PreferencesValidationError };
