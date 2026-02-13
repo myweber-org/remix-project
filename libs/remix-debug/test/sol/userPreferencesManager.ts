@@ -1,7 +1,7 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
   language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
 }
 
@@ -22,27 +22,32 @@ class UserPreferencesManager {
     }
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const validated = this.validateUpdates(updates);
+    this.preferences = { ...this.preferences, ...validated };
     this.savePreferences();
-    return true;
   }
 
-  private validatePreferences(prefs: UserPreferences): boolean {
-    return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      typeof prefs.notificationsEnabled === 'boolean' &&
-      prefs.fontSize >= 12 &&
-      prefs.fontSize <= 24
-    );
+  private validateUpdates(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const validated: Partial<UserPreferences> = {};
+
+    if (updates.theme && ['light', 'dark', 'auto'].includes(updates.theme)) {
+      validated.theme = updates.theme;
+    }
+
+    if (typeof updates.notifications === 'boolean') {
+      validated.notifications = updates.notifications;
+    }
+
+    if (updates.language && typeof updates.language === 'string') {
+      validated.language = updates.language;
+    }
+
+    if (updates.fontSize && updates.fontSize >= 8 && updates.fontSize <= 32) {
+      validated.fontSize = updates.fontSize;
+    }
+
+    return validated;
   }
 
   private savePreferences(): void {
@@ -57,17 +62,16 @@ class UserPreferencesManager {
   }
 
   resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
+    this.preferences = { ...defaults };
     this.savePreferences();
   }
 }
 
-const defaultUserPreferences: UserPreferences = {
+const defaultPrefs: UserPreferences = {
   theme: 'auto',
-  language: 'en',
-  notificationsEnabled: true,
-  fontSize: 16
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14
 };
 
-export { UserPreferencesManager, defaultUserPreferences };
-export type { UserPreferences };
+export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
