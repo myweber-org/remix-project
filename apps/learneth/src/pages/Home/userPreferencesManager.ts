@@ -1,4 +1,3 @@
-
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
@@ -14,7 +13,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
+const MIN_RESULTS_PER_PAGE = 5;
 const MAX_RESULTS_PER_PAGE = 100;
 
 class UserPreferencesManager {
@@ -30,12 +29,12 @@ class UserPreferencesManager {
       this.preferences.theme = DEFAULT_PREFERENCES.theme;
     }
 
-    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
-      this.preferences.language = DEFAULT_PREFERENCES.language;
-    }
-
     if (typeof this.preferences.notifications !== 'boolean') {
       this.preferences.notifications = DEFAULT_PREFERENCES.notifications;
+    }
+
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
     }
 
     if (typeof this.preferences.resultsPerPage !== 'number' ||
@@ -51,9 +50,10 @@ class UserPreferencesManager {
 
   updatePreferences(updates: Partial<UserPreferences>): boolean {
     const previousPreferences = { ...this.preferences };
+    
     this.preferences = { ...this.preferences, ...updates };
     this.validateAndFixPreferences();
-    
+
     return JSON.stringify(previousPreferences) !== JSON.stringify(this.preferences);
   }
 
@@ -61,78 +61,31 @@ class UserPreferencesManager {
     this.preferences = { ...DEFAULT_PREFERENCES };
   }
 
-  isDarkModePreferred(): boolean {
-    if (this.preferences.theme === 'dark') return true;
-    if (this.preferences.theme === 'light') return false;
-    
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }
-}
-
-export { UserPreferencesManager, DEFAULT_PREFERENCES };
-export type { UserPreferences };interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
-  fontSize: number;
-}
-
-class UserPreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private preferences: UserPreferences;
-
-  constructor(defaultPreferences: UserPreferences) {
-    this.preferences = this.loadPreferences() || defaultPreferences;
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
   }
 
-  private loadPreferences(): UserPreferences | null {
+  static importPreferences(jsonString: string): UserPreferencesManager | null {
     try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
+      const parsed = JSON.parse(jsonString);
+      return new UserPreferencesManager(parsed);
     } catch {
       return null;
     }
   }
-
-  private savePreferences(): void {
-    localStorage.setItem(
-      UserPreferencesManager.STORAGE_KEY,
-      JSON.stringify(this.preferences)
-    );
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
-
-    this.preferences = newPreferences;
-    this.savePreferences();
-    return true;
-  }
-
-  private validatePreferences(prefs: UserPreferences): boolean {
-    return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      typeof prefs.notificationsEnabled === 'boolean' &&
-      Number.isInteger(prefs.fontSize) &&
-      prefs.fontSize >= 8 &&
-      prefs.fontSize <= 32
-    );
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
-  }
-
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
-    this.savePreferences();
-  }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+function createPreferencesFromLocalStorage(): UserPreferencesManager {
+  const stored = localStorage.getItem('userPreferences');
+  if (stored) {
+    const manager = UserPreferencesManager.importPreferences(stored);
+    if (manager) {
+      return manager;
+    }
+  }
+  return new UserPreferencesManager();
+}
+
+function savePreferencesToLocalStorage(manager: UserPreferencesManager): void {
+  localStorage.setItem('userPreferences', manager.exportPreferences());
+}
