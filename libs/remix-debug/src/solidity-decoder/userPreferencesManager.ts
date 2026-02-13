@@ -233,4 +233,72 @@ class UserPreferencesManager {
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export const preferencesManager = new UserPreferencesManager();import { BehaviorSubject, Observable } from 'rxjs';
+
+export interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  itemsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  language: 'en-US',
+  notificationsEnabled: true,
+  itemsPerPage: 25
+};
+
+const STORAGE_KEY = 'app_user_preferences';
+
+export class UserPreferencesManager {
+  private preferencesSubject: BehaviorSubject<UserPreferences>;
+  public preferences$: Observable<UserPreferences>;
+
+  constructor() {
+    const saved = this.loadFromStorage();
+    this.preferencesSubject = new BehaviorSubject<UserPreferences>(
+      saved || DEFAULT_PREFERENCES
+    );
+    this.preferences$ = this.preferencesSubject.asObservable();
+  }
+
+  private loadFromStorage(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveToStorage(prefs: UserPreferences): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    } catch (error) {
+      console.warn('Failed to save preferences:', error);
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const current = this.preferencesSubject.getValue();
+    const newPreferences = { ...current, ...updates };
+    
+    this.preferencesSubject.next(newPreferences);
+    this.saveToStorage(newPreferences);
+  }
+
+  resetToDefaults(): void {
+    this.preferencesSubject.next(DEFAULT_PREFERENCES);
+    this.saveToStorage(DEFAULT_PREFERENCES);
+  }
+
+  getCurrentPreferences(): UserPreferences {
+    return this.preferencesSubject.getValue();
+  }
+
+  clearStorage(): void {
+    localStorage.removeItem(STORAGE_KEY);
+    this.resetToDefaults();
+  }
+}
