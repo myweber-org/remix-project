@@ -106,4 +106,61 @@ export function formatValidationErrors(err: ValidationError): string {
   return err.details
     .map(detail => `Field "${detail.field}": ${detail.message}`)
     .join('\n');
+}interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
 }
+
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+  static validate(preferences: Partial<UserPreferences>): UserPreferences {
+    const errors: string[] = [];
+
+    if (!preferences.theme || !['light', 'dark', 'auto'].includes(preferences.theme)) {
+      errors.push('Theme must be either "light", "dark", or "auto"');
+    }
+
+    if (preferences.notifications === undefined) {
+      errors.push('Notifications preference must be specified');
+    }
+
+    if (!preferences.language) {
+      errors.push('Language is required');
+    } else if (!this.SUPPORTED_LANGUAGES.includes(preferences.language)) {
+      errors.push(`Language "${preferences.language}" is not supported`);
+    }
+
+    if (!preferences.timezone) {
+      errors.push('Timezone is required');
+    } else if (!this.VALID_TIMEZONES.test(preferences.timezone)) {
+      errors.push(`Timezone "${preferences.timezone}" has invalid format`);
+    }
+
+    if (errors.length > 0) {
+      throw new PreferenceValidationError(`Validation failed: ${errors.join('; ')}`);
+    }
+
+    return preferences as UserPreferences;
+  }
+
+  static sanitize(preferences: UserPreferences): UserPreferences {
+    return {
+      ...preferences,
+      language: preferences.language.toLowerCase(),
+      timezone: preferences.timezone.replace(/\s+/g, '_')
+    };
+  }
+}
+
+export { UserPreferences, UserPreferencesValidator, PreferenceValidationError };
