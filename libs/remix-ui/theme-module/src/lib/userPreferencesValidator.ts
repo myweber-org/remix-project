@@ -1,3 +1,4 @@
+
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
@@ -5,76 +6,45 @@ interface UserPreferences {
   fontSize: number;
 }
 
-class PreferenceError extends Error {
-  constructor(message: string, public field: string) {
-    super(message);
-    this.name = 'PreferenceError';
+class PreferenceValidator {
+  private static readonly MIN_FONT_SIZE = 8;
+  private static readonly MAX_FONT_SIZE = 72;
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+
+  static validate(prefs: Partial<UserPreferences>): string[] {
+    const errors: string[] = [];
+
+    if (prefs.theme !== undefined && !['light', 'dark', 'auto'].includes(prefs.theme)) {
+      errors.push(`Invalid theme value: ${prefs.theme}`);
+    }
+
+    if (prefs.fontSize !== undefined) {
+      if (typeof prefs.fontSize !== 'number') {
+        errors.push('Font size must be a number');
+      } else if (prefs.fontSize < this.MIN_FONT_SIZE || prefs.fontSize > this.MAX_FONT_SIZE) {
+        errors.push(`Font size must be between ${this.MIN_FONT_SIZE} and ${this.MAX_FONT_SIZE}`);
+      }
+    }
+
+    if (prefs.language !== undefined && !this.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+      errors.push(`Unsupported language: ${prefs.language}`);
+    }
+
+    if (prefs.notifications !== undefined && typeof prefs.notifications !== 'boolean') {
+      errors.push('Notifications must be a boolean value');
+    }
+
+    return errors;
   }
-}
 
-class UserPreferencesValidator {
-  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'];
-  private static readonly MIN_FONT_SIZE = 12;
-  private static readonly MAX_FONT_SIZE = 24;
-
-  static validate(preferences: Partial<UserPreferences>): UserPreferences {
-    const validated: UserPreferences = {
-      theme: this.validateTheme(preferences.theme),
-      notifications: this.validateNotifications(preferences.notifications),
-      language: this.validateLanguage(preferences.language),
-      fontSize: this.validateFontSize(preferences.fontSize)
+  static normalize(prefs: Partial<UserPreferences>): UserPreferences {
+    return {
+      theme: prefs.theme || 'auto',
+      notifications: prefs.notifications ?? true,
+      language: prefs.language || 'en',
+      fontSize: prefs.fontSize || 16,
     };
-
-    return validated;
-  }
-
-  private static validateTheme(theme?: string): UserPreferences['theme'] {
-    if (!theme) {
-      throw new PreferenceError('Theme is required', 'theme');
-    }
-
-    if (!['light', 'dark', 'auto'].includes(theme)) {
-      throw new PreferenceError('Theme must be light, dark, or auto', 'theme');
-    }
-
-    return theme as UserPreferences['theme'];
-  }
-
-  private static validateNotifications(notifications?: boolean): boolean {
-    if (notifications === undefined) {
-      throw new PreferenceError('Notifications preference is required', 'notifications');
-    }
-
-    return notifications;
-  }
-
-  private static validateLanguage(language?: string): string {
-    if (!language) {
-      throw new PreferenceError('Language is required', 'language');
-    }
-
-    if (!this.SUPPORTED_LANGUAGES.includes(language)) {
-      throw new PreferenceError(`Language must be one of: ${this.SUPPORTED_LANGUAGES.join(', ')}`, 'language');
-    }
-
-    return language;
-  }
-
-  private static validateFontSize(fontSize?: number): number {
-    if (fontSize === undefined) {
-      throw new PreferenceError('Font size is required', 'fontSize');
-    }
-
-    if (!Number.isInteger(fontSize)) {
-      throw new PreferenceError('Font size must be an integer', 'fontSize');
-    }
-
-    if (fontSize < this.MIN_FONT_SIZE || fontSize > this.MAX_FONT_SIZE) {
-      throw new PreferenceError(`Font size must be between ${this.MIN_FONT_SIZE} and ${this.MAX_FONT_SIZE}`, 'fontSize');
-    }
-
-    return fontSize;
   }
 }
 
-export { UserPreferencesValidator, PreferenceError, UserPreferences };
+export { UserPreferences, PreferenceValidator };
