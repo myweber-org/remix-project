@@ -529,4 +529,73 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
+  }
+
+  private loadPreferences(): UserPreferences | null {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
+    return this.preferences[key];
+  }
+
+  setPreference<K extends keyof UserPreferences>(
+    key: K,
+    value: UserPreferences[K]
+  ): void {
+    this.preferences[key] = value;
+    this.savePreferences();
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.preferences = { ...defaults };
+    this.savePreferences();
+  }
+
+  getAllPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  clearPreferences(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+    this.preferences = {} as UserPreferences;
+  }
+}
+
+const defaultPreferences: UserPreferences = {
+  theme: 'light',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+export const userPrefs = new UserPreferencesManager(defaultPreferences);
