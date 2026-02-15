@@ -5,14 +5,8 @@ interface UserPreferences {
   fontSize: number;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  fontSize: 14
-};
-
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
   constructor() {
@@ -20,46 +14,51 @@ class UserPreferencesManager {
   }
 
   private loadPreferences(): UserPreferences {
-    const stored = localStorage.getItem('userPreferences');
-    if (!stored) return DEFAULT_PREFERENCES;
-
-    try {
-      const parsed = JSON.parse(stored);
-      return this.validatePreferences(parsed);
-    } catch {
-      return DEFAULT_PREFERENCES;
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (stored) {
+      try {
+        return this.validatePreferences(JSON.parse(stored));
+      } catch {
+        return this.getDefaultPreferences();
+      }
     }
+    return this.getDefaultPreferences();
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
-    if (!data || typeof data !== 'object') return DEFAULT_PREFERENCES;
-
-    const prefs = data as Partial<UserPreferences>;
-    
+  private getDefaultPreferences(): UserPreferences {
     return {
-      theme: this.isValidTheme(prefs.theme) ? prefs.theme : DEFAULT_PREFERENCES.theme,
-      notifications: typeof prefs.notifications === 'boolean' ? prefs.notifications : DEFAULT_PREFERENCES.notifications,
-      language: typeof prefs.language === 'string' ? prefs.language : DEFAULT_PREFERENCES.language,
-      fontSize: typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 24 
-        ? prefs.fontSize 
-        : DEFAULT_PREFERENCES.fontSize
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 14
     };
   }
 
-  private isValidTheme(theme: unknown): theme is UserPreferences['theme'] {
-    return theme === 'light' || theme === 'dark' || theme === 'auto';
+  private validatePreferences(data: any): UserPreferences {
+    const validThemes = ['light', 'dark', 'auto'];
+    const defaultPrefs = this.getDefaultPreferences();
+
+    return {
+      theme: validThemes.includes(data.theme) ? data.theme : defaultPrefs.theme,
+      notifications: typeof data.notifications === 'boolean' ? data.notifications : defaultPrefs.notifications,
+      language: typeof data.language === 'string' && data.language.length === 2 ? data.language : defaultPrefs.language,
+      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 10 && data.fontSize <= 24 ? data.fontSize : defaultPrefs.fontSize
+    };
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
     this.preferences = {
       ...this.preferences,
-      ...updates
+      ...this.validatePreferences(updates)
     };
     this.savePreferences();
   }
 
   private savePreferences(): void {
-    localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(this.preferences)
+    );
   }
 
   getPreferences(): Readonly<UserPreferences> {
@@ -67,16 +66,21 @@ class UserPreferencesManager {
   }
 
   resetToDefaults(): void {
-    this.preferences = DEFAULT_PREFERENCES;
+    this.preferences = this.getDefaultPreferences();
     this.savePreferences();
   }
 
-  isDarkMode(): boolean {
-    if (this.preferences.theme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return this.preferences.theme === 'dark';
+  applyTheme(): void {
+    const theme = this.preferences.theme === 'auto' 
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : this.preferences.theme;
+    
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  applyFontSize(): void {
+    document.documentElement.style.fontSize = `${this.preferences.fontSize}px`;
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export { UserPreferencesManager, type UserPreferences };
