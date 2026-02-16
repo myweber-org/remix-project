@@ -114,4 +114,56 @@ const updated = profileManager.updateProfile('user-123', { age: 31 });
 console.log(`Update successful: ${updated}`);
 
 const activeProfiles = profileManager.listActiveProfiles();
-console.log(`Active users: ${activeProfiles.length}`);
+console.log(`Active users: ${activeProfiles.length}`);import { UserProfile, AuditLog } from './types';
+
+export class UserProfileManager {
+  private profiles: Map<string, UserProfile> = new Map();
+  private auditLogs: AuditLog[] = [];
+
+  updateProfile(userId: string, updates: Partial<UserProfile>): UserProfile | null {
+    const existingProfile = this.profiles.get(userId);
+    
+    if (!existingProfile) {
+      this.logAudit(userId, 'UPDATE_ATTEMPT', 'FAILED: User not found');
+      return null;
+    }
+
+    if (updates.email && !this.isValidEmail(updates.email)) {
+      this.logAudit(userId, 'UPDATE_ATTEMPT', 'FAILED: Invalid email format');
+      return null;
+    }
+
+    const updatedProfile: UserProfile = {
+      ...existingProfile,
+      ...updates,
+      lastUpdated: new Date()
+    };
+
+    this.profiles.set(userId, updatedProfile);
+    this.logAudit(userId, 'PROFILE_UPDATED', 'SUCCESS');
+
+    return updatedProfile;
+  }
+
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  private logAudit(userId: string, action: string, details: string): void {
+    const logEntry: AuditLog = {
+      timestamp: new Date(),
+      userId,
+      action,
+      details
+    };
+    this.auditLogs.push(logEntry);
+  }
+
+  getAuditLogs(userId?: string): AuditLog[] {
+    if (userId) {
+      return this.auditLogs.filter(log => log.userId === userId);
+    }
+    return [...this.auditLogs];
+  }
+}
