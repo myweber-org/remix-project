@@ -1,95 +1,57 @@
-
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
   resultsPerPage: number;
-  timezone: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
   notifications: true,
   language: 'en-US',
-  resultsPerPage: 20,
-  timezone: 'UTC'
+  resultsPerPage: 20
 };
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'];
-const VALID_TIMEZONES = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const VALID_RESULTS_PER_PAGE = [10, 20, 50, 100];
 
-class PreferencesManager {
-  private preferences: UserPreferences;
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
 
-  constructor(initialPreferences?: Partial<UserPreferences>) {
-    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
-    this.validateAndSanitize();
+  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
+    validated.theme = prefs.theme;
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (this.validatePreferences(newPreferences)) {
-      this.preferences = newPreferences;
-      this.saveToStorage();
-      return true;
-    }
-    
-    return false;
+  if (typeof prefs.notifications === 'boolean') {
+    validated.notifications = prefs.notifications;
   }
 
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
+  if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
+    validated.language = prefs.language;
   }
 
-  resetToDefaults(): void {
-    this.preferences = { ...DEFAULT_PREFERENCES };
-    this.saveToStorage();
+  if (prefs.resultsPerPage && VALID_RESULTS_PER_PAGE.includes(prefs.resultsPerPage)) {
+    validated.resultsPerPage = prefs.resultsPerPage;
   }
 
-  private validatePreferences(prefs: UserPreferences): boolean {
-    if (!VALID_LANGUAGES.includes(prefs.language)) {
-      return false;
-    }
+  return validated;
+}
 
-    if (!VALID_TIMEZONES.includes(prefs.timezone)) {
-      return false;
-    }
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validated = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
+}
 
-    if (prefs.resultsPerPage < 5 || prefs.resultsPerPage > 100) {
-      return false;
-    }
+function loadPreferences(): UserPreferences {
+  const stored = localStorage.getItem('userPreferences');
+  if (!stored) return DEFAULT_PREFERENCES;
 
-    return true;
-  }
-
-  private validateAndSanitize(): void {
-    if (!this.validatePreferences(this.preferences)) {
-      this.preferences = { ...DEFAULT_PREFERENCES };
-    }
-  }
-
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
-  }
-
-  static loadFromStorage(): PreferencesManager {
-    try {
-      const stored = localStorage.getItem('userPreferences');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return new PreferencesManager(parsed);
-      }
-    } catch (error) {
-      console.error('Failed to load preferences:', error);
-    }
-    
-    return new PreferencesManager();
+  try {
+    const parsed = JSON.parse(stored);
+    return validatePreferences(parsed);
+  } catch {
+    return DEFAULT_PREFERENCES;
   }
 }
 
-export { PreferencesManager, type UserPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
