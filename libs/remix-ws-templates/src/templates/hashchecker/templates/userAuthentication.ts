@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 interface UserPayload {
-  id: string;
+  userId: string;
   email: string;
   role: string;
 }
@@ -15,6 +15,8 @@ declare global {
   }
 }
 
+const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
+
 export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -24,24 +26,13 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const secretKey = process.env.JWT_SECRET_KEY;
-  if (!secretKey) {
-    res.status(500).json({ error: 'Server configuration error' });
-    return;
-  }
-
-  jwt.verify(token, secretKey, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       res.status(403).json({ error: 'Invalid or expired token' });
       return;
     }
 
-    const userPayload = decoded as UserPayload;
-    req.user = {
-      id: userPayload.id,
-      email: userPayload.email,
-      role: userPayload.role
-    };
+    req.user = decoded as UserPayload;
     next();
   });
 };
