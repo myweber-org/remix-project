@@ -36,4 +36,50 @@ export function getValidationErrors(input: unknown): string[] {
     }
     return ['Invalid input format'];
   }
+}import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).max(5).default('en'),
+  fontSize: z.number().min(12).max(24).default(16),
+  autoSave: z.boolean().default(false),
+  twoFactorAuth: z.boolean().default(false)
+});
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+export class PreferenceValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return PreferenceSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.warn('Invalid preferences provided, using defaults:', error.errors);
+      }
+      return PreferenceSchema.parse({});
+    }
+  }
+
+  static mergeWithDefaults(partialPrefs: Partial<UserPreferences>): UserPreferences {
+    const validated = this.validate(partialPrefs);
+    return { ...this.getDefaults(), ...validated };
+  }
+
+  static getDefaults(): UserPreferences {
+    return PreferenceSchema.parse({});
+  }
+
+  static isValid(prefs: unknown): prefs is UserPreferences {
+    return PreferenceSchema.safeParse(prefs).success;
+  }
+}
+
+export function sanitizePreferences(rawData: Record<string, unknown>): UserPreferences {
+  const filtered = Object.fromEntries(
+    Object.entries(rawData).filter(([key]) => 
+      Object.keys(PreferenceSchema.shape).includes(key)
+    )
+  );
+  return PreferenceValidator.mergeWithDefaults(filtered);
 }
