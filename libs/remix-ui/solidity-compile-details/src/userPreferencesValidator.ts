@@ -64,4 +64,55 @@ export function createPreferencesStore() {
       return { ...currentPreferences };
     }
   };
+}interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
 }
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+const THEME_VALUES = ['light', 'dark', 'auto'] as const;
+
+function validatePreferences(input: unknown): UserPreferences {
+  if (!input || typeof input !== 'object') {
+    return DEFAULT_PREFERENCES;
+  }
+
+  const partial = input as Partial<UserPreferences>;
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (partial.theme && THEME_VALUES.includes(partial.theme)) {
+    validated.theme = partial.theme;
+  }
+
+  if (typeof partial.notifications === 'boolean') {
+    validated.notifications = partial.notifications;
+  }
+
+  if (typeof partial.language === 'string' && partial.language.length >= 2) {
+    validated.language = partial.language;
+  }
+
+  if (typeof partial.resultsPerPage === 'number' 
+      && partial.resultsPerPage >= 10 
+      && partial.resultsPerPage <= 100) {
+    validated.resultsPerPage = partial.resultsPerPage;
+  }
+
+  return validated;
+}
+
+function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const validatedUpdates = validatePreferences(updates);
+  return { ...existing, ...validatedUpdates };
+}
+
+export { validatePreferences, mergePreferences, DEFAULT_PREFERENCES };
+export type { UserPreferences };
