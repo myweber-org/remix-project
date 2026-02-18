@@ -86,4 +86,71 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  language: 'en',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+
+  static loadPreferences(): UserPreferences {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (!stored) return { ...DEFAULT_PREFERENCES };
+
+    try {
+      const parsed = JSON.parse(stored);
+      return this.validatePreferences(parsed);
+    } catch {
+      return { ...DEFAULT_PREFERENCES };
+    }
+  }
+
+  static savePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+    const current = this.loadPreferences();
+    const updated = { ...current, ...prefs };
+    const validated = this.validatePreferences(updated);
+    
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validated));
+    return validated;
+  }
+
+  static resetToDefaults(): UserPreferences {
+    localStorage.removeItem(this.STORAGE_KEY);
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private static validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      return { ...DEFAULT_PREFERENCES };
+    }
+
+    const prefs = data as Record<string, unknown>;
+    
+    return {
+      theme: this.validateTheme(prefs.theme),
+      language: typeof prefs.language === 'string' ? prefs.language : DEFAULT_PREFERENCES.language,
+      notificationsEnabled: typeof prefs.notificationsEnabled === 'boolean' 
+        ? prefs.notificationsEnabled 
+        : DEFAULT_PREFERENCES.notificationsEnabled,
+      fontSize: typeof prefs.fontSize === 'number' 
+        ? Math.max(8, Math.min(32, prefs.fontSize))
+        : DEFAULT_PREFERENCES.fontSize
+    };
+  }
+
+  private static validateTheme(theme: unknown): 'light' | 'dark' {
+    return theme === 'dark' ? 'dark' : 'light';
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
