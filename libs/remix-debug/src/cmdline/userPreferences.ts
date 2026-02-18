@@ -1,47 +1,38 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  notificationsEnabled: boolean;
+  fontSize: number;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
+  language: 'en',
+  notificationsEnabled: true,
+  fontSize: 14
 };
-
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const MIN_RESULTS_PER_PAGE = 10;
-const MAX_RESULTS_PER_PAGE = 100;
 
 function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
   const validated = { ...DEFAULT_PREFERENCES, ...prefs };
   
   if (!['light', 'dark', 'auto'].includes(validated.theme)) {
-    validated.theme = DEFAULT_PREFERENCES.theme;
+    validated.theme = 'auto';
   }
   
-  if (!VALID_LANGUAGES.includes(validated.language)) {
-    validated.language = DEFAULT_PREFERENCES.language;
+  if (typeof validated.fontSize !== 'number' || validated.fontSize < 8 || validated.fontSize > 32) {
+    validated.fontSize = 14;
   }
   
-  if (typeof validated.notifications !== 'boolean') {
-    validated.notifications = DEFAULT_PREFERENCES.notifications;
-  }
-  
-  if (typeof validated.resultsPerPage !== 'number' || 
-      validated.resultsPerPage < MIN_RESULTS_PER_PAGE || 
-      validated.resultsPerPage > MAX_RESULTS_PER_PAGE) {
-    validated.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+  if (typeof validated.language !== 'string' || validated.language.length !== 2) {
+    validated.language = 'en';
   }
   
   return validated;
 }
 
-function savePreferences(prefs: UserPreferences): void {
-  localStorage.setItem('userPreferences', JSON.stringify(prefs));
+function savePreferences(prefs: Partial<UserPreferences>): void {
+  const validated = validatePreferences(prefs);
+  localStorage.setItem('userPreferences', JSON.stringify(validated));
 }
 
 function loadPreferences(): UserPreferences {
@@ -55,5 +46,3 @@ function loadPreferences(): UserPreferences {
     return DEFAULT_PREFERENCES;
   }
 }
-
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
