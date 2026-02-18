@@ -1,68 +1,56 @@
+import { z } from 'zod';
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'auto';
-  notifications: boolean;
-  language: string;
-  fontSize: number;
-}
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notificationsEnabled: z.boolean().default(true),
+  itemsPerPage: z.number().min(5).max(100).default(25),
+  language: z.string().length(2).default('en'),
+  timezone: z.string().optional(),
+  autoSaveInterval: z.number().positive().optional(),
+});
 
-class PreferenceValidator {
-  private static readonly MIN_FONT_SIZE = 12;
-  private static readonly MAX_FONT_SIZE = 24;
-  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 
-  static validate(prefs: UserPreferences): string[] {
-    const errors: string[] = [];
-
-    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      errors.push(`Invalid theme: ${prefs.theme}. Must be 'light', 'dark', or 'auto'.`);
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const issues = error.issues.map(issue => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        }));
+        throw new ValidationError('Invalid user preferences', issues);
+      }
+      throw error;
     }
-
-    if (typeof prefs.notifications !== 'boolean') {
-      errors.push('Notifications must be a boolean value.');
-    }
-
-    if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
-      errors.push(`Unsupported language: ${prefs.language}. Supported: ${PreferenceValidator.SUPPORTED_LANGUAGES.join(', ')}`);
-    }
-
-    if (prefs.fontSize < PreferenceValidator.MIN_FONT_SIZE || prefs.fontSize > PreferenceValidator.MAX_FONT_SIZE) {
-      errors.push(`Font size ${prefs.fontSize} is out of range. Must be between ${PreferenceValidator.MIN_FONT_SIZE} and ${PreferenceValidator.MAX_FONT_SIZE}.`);
-    }
-
-    return errors;
   }
 
-  static validateAndThrow(prefs: UserPreferences): void {
-    const errors = this.validate(prefs);
-    if (errors.length > 0) {
-      throw new Error(`Validation failed:\n${errors.join('\n')}`);
-    }
+  static validatePartial(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+    const schema = UserPreferencesSchema.partial();
+    return schema.parse(updates);
+  }
+
+  static getDefaults(): UserPreferences {
+    return UserPreferencesSchema.parse({});
   }
 }
 
-function updateUserPreferences(newPrefs: UserPreferences): void {
-  try {
-    PreferenceValidator.validateAndThrow(newPrefs);
-    console.log('Preferences updated successfully:', newPrefs);
-  } catch (error) {
-    console.error('Failed to update preferences:', error.message);
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly issues: Array<{ path: string; message: string }>
+  ) {
+    super(message);
+    this.name = 'ValidationError';
   }
 }
 
-const validPreferences: UserPreferences = {
-  theme: 'dark',
-  notifications: true,
-  language: 'en',
-  fontSize: 16
-};
-
-const invalidPreferences: UserPreferences = {
-  theme: 'purple',
-  notifications: 'yes' as any,
-  language: 'xx',
-  fontSize: 8
-};
-
-updateUserPreferences(validPreferences);
-updateUserPreferences(invalidPreferences);
+export function sanitizePreferences(prefs: UserPreferences): UserPreferences {
+  return {
+    ...prefs,
+    language: prefs.language.toLowerCase(),
+    timezone: prefs.timezone?.replace(/\s+/g, '_'),
+  };
+}
