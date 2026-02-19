@@ -92,4 +92,44 @@ function saveUserPreferences(prefs: UserPreferences): boolean {
   }
 }
 
-export { UserPreferences, PreferenceValidationError, validateUserPreferences, saveUserPreferences };
+export { UserPreferences, PreferenceValidationError, validateUserPreferences, saveUserPreferences };import { z } from 'zod';
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
+    dataSharing: z.boolean().default(false)
+  }),
+  language: z.string().min(2).max(5).default('en')
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const defaultPreferences = UserPreferencesSchema.parse({});
+        console.warn('Invalid preferences, using defaults:', error.errors);
+        return defaultPreferences;
+      }
+      throw error;
+    }
+  }
+
+  static mergeWithDefaults(partial: Partial<UserPreferences>): UserPreferences {
+    const defaults = UserPreferencesSchema.parse({});
+    return UserPreferencesSchema.parse({ ...defaults, ...partial });
+  }
+
+  static isValid(prefs: unknown): prefs is UserPreferences {
+    return UserPreferencesSchema.safeParse(prefs).success;
+  }
+}
