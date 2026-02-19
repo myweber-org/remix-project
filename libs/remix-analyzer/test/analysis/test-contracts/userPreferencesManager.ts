@@ -462,4 +462,58 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+
+  static loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return { ...DEFAULT_PREFERENCES, ...parsed };
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from localStorage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  static savePreferences(preferences: Partial<UserPreferences>): void {
+    try {
+      const current = this.loadPreferences();
+      const updated = { ...current, ...preferences };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to save preferences to localStorage:', error);
+    }
+  }
+
+  static resetToDefaults(): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(DEFAULT_PREFERENCES));
+    } catch (error) {
+      console.error('Failed to reset preferences:', error);
+    }
+  }
+
+  static getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
+    const prefs = this.loadPreferences();
+    return prefs[key];
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
