@@ -9,40 +9,53 @@ class UserPreferencesManager {
   private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor(defaultPreferences: UserPreferences) {
-    this.preferences = this.loadPreferences() || defaultPreferences;
+  constructor() {
+    this.preferences = this.loadPreferences();
   }
 
-  private loadPreferences(): UserPreferences | null {
-    try {
-      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
+  private loadPreferences(): UserPreferences {
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (stored) {
+      try {
+        return this.validatePreferences(JSON.parse(stored));
+      } catch {
+        return this.getDefaultPreferences();
+      }
     }
+    return this.getDefaultPreferences();
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    const newPreferences = { ...this.preferences, ...updates };
-    
-    if (!this.validatePreferences(newPreferences)) {
-      return false;
-    }
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 14
+    };
+  }
 
-    this.preferences = newPreferences;
+  private validatePreferences(data: any): UserPreferences {
+    const validThemes = ['light', 'dark', 'auto'];
+    const defaultPrefs = this.getDefaultPreferences();
+
+    return {
+      theme: validThemes.includes(data.theme) ? data.theme : defaultPrefs.theme,
+      notifications: typeof data.notifications === 'boolean' ? data.notifications : defaultPrefs.notifications,
+      language: typeof data.language === 'string' && data.language.length === 2 ? data.language : defaultPrefs.language,
+      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 24 ? data.fontSize : defaultPrefs.fontSize
+    };
+  }
+
+  public updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = {
+      ...this.preferences,
+      ...this.validatePreferences(updates)
+    };
     this.savePreferences();
-    return true;
   }
 
-  private validatePreferences(prefs: UserPreferences): boolean {
-    return (
-      ['light', 'dark', 'auto'].includes(prefs.theme) &&
-      typeof prefs.notifications === 'boolean' &&
-      typeof prefs.language === 'string' &&
-      prefs.language.length >= 2 &&
-      prefs.fontSize >= 8 &&
-      prefs.fontSize <= 32
-    );
+  public getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
   }
 
   private savePreferences(): void {
@@ -52,21 +65,22 @@ class UserPreferencesManager {
     );
   }
 
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
+  public resetToDefaults(): void {
+    this.preferences = this.getDefaultPreferences();
+    this.savePreferences();
   }
 
-  resetToDefaults(defaults: UserPreferences): void {
-    this.preferences = defaults;
-    this.savePreferences();
+  public applyTheme(): void {
+    const theme = this.preferences.theme === 'auto' 
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : this.preferences.theme;
+    
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  public applyFontSize(): void {
+    document.documentElement.style.fontSize = `${this.preferences.fontSize}px`;
   }
 }
 
-const defaultPreferences: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en',
-  fontSize: 14
-};
-
-export const preferencesManager = new UserPreferencesManager(defaultPreferences);
+export { UserPreferencesManager, type UserPreferences };
