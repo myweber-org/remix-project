@@ -46,4 +46,32 @@ function normalizePreferences(prefs: Partial<UserPreferences>): UserPreferences 
   return merged;
 }
 
-export { UserPreferences, PreferenceValidationError, validateUserPreferences, normalizePreferences };
+export { UserPreferences, PreferenceValidationError, validateUserPreferences, normalizePreferences };import { z } from "zod";
+
+const ThemeSchema = z.enum(["light", "dark", "system"]);
+const NotificationSettingsSchema = z.object({
+  email: z.boolean(),
+  push: z.boolean(),
+  frequency: z.enum(["instant", "daily", "weekly"]).default("daily"),
+});
+
+export const UserPreferencesSchema = z.object({
+  userId: z.string().uuid(),
+  theme: ThemeSchema.default("system"),
+  language: z.string().min(2).max(5).default("en"),
+  notifications: NotificationSettingsSchema.default({}),
+  twoFactorEnabled: z.boolean().default(false),
+  createdAt: z.date().default(() => new Date()),
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export function validateUserPreferences(input: unknown): UserPreferences {
+  return UserPreferencesSchema.parse(input);
+}
+
+export function validatePartialPreferences(
+  input: unknown
+): Partial<UserPreferences> {
+  return UserPreferencesSchema.partial().parse(input);
+}
