@@ -217,4 +217,136 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private preferences: UserPreferences;
+
+  constructor(defaultPreferences?: Partial<UserPreferences>) {
+    this.preferences = this.loadPreferences();
+    if (defaultPreferences) {
+      this.preferences = { ...this.preferences, ...defaultPreferences };
+    }
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    
+    return this.getDefaultPreferences();
+  }
+
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      language: 'en-US',
+      notificationsEnabled: true,
+      fontSize: 14
+    };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const previousPreferences = { ...this.preferences };
+    
+    this.preferences = { ...this.preferences, ...updates };
+    
+    if (this.validatePreferences(this.preferences)) {
+      this.savePreferences();
+      this.notifyPreferencesChange(previousPreferences, this.preferences);
+    } else {
+      this.preferences = previousPreferences;
+      throw new Error('Invalid preferences provided');
+    }
+  }
+
+  private validatePreferences(prefs: UserPreferences): boolean {
+    const validThemes = ['light', 'dark', 'auto'];
+    const minFontSize = 8;
+    const maxFontSize = 32;
+
+    return (
+      validThemes.includes(prefs.theme) &&
+      typeof prefs.language === 'string' &&
+      prefs.language.length >= 2 &&
+      typeof prefs.notificationsEnabled === 'boolean' &&
+      prefs.fontSize >= minFontSize &&
+      prefs.fontSize <= maxFontSize
+    );
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+      throw new Error('Unable to persist preferences');
+    }
+  }
+
+  private notifyPreferencesChange(
+    oldPrefs: UserPreferences,
+    newPrefs: UserPreferences
+  ): void {
+    const changes: string[] = [];
+    
+    if (oldPrefs.theme !== newPrefs.theme) {
+      changes.push(`Theme changed from ${oldPrefs.theme} to ${newPrefs.theme}`);
+    }
+    
+    if (oldPrefs.language !== newPrefs.language) {
+      changes.push(`Language changed from ${oldPrefs.language} to ${newPrefs.language}`);
+    }
+    
+    if (oldPrefs.notificationsEnabled !== newPrefs.notificationsEnabled) {
+      changes.push(`Notifications ${newPrefs.notificationsEnabled ? 'enabled' : 'disabled'}`);
+    }
+    
+    if (oldPrefs.fontSize !== newPrefs.fontSize) {
+      changes.push(`Font size changed from ${oldPrefs.fontSize} to ${newPrefs.fontSize}`);
+    }
+    
+    if (changes.length > 0) {
+      console.log('Preferences updated:', changes.join(', '));
+      
+      const event = new CustomEvent('preferenceschanged', {
+        detail: { old: oldPrefs, new: newPrefs, changes }
+      });
+      window.dispatchEvent(event);
+    }
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.updatePreferences(this.getDefaultPreferences());
+  }
+
+  clearPreferences(): void {
+    try {
+      localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+      this.preferences = this.getDefaultPreferences();
+      console.log('Preferences cleared and reset to defaults');
+    } catch (error) {
+      console.error('Failed to clear preferences:', error);
+    }
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
