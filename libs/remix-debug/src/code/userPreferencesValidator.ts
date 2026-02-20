@@ -34,4 +34,34 @@ class PreferenceValidator {
   }
 }
 
-export { UserPreferences, PreferenceValidator };
+export { UserPreferences, PreferenceValidator };import { z } from 'zod';
+
+export const userPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
+    dataSharing: z.boolean().default(false)
+  }),
+  language: z.string().min(2).max(5).default('en')
+}).refine((data) => {
+  return !(data.privacy.dataSharing && data.privacy.profileVisibility === 'private');
+}, {
+  message: 'Cannot share data while profile is private',
+  path: ['privacy.dataSharing']
+});
+
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+export function validateUserPreferences(input: unknown): UserPreferences {
+  return userPreferencesSchema.parse(input);
+}
+
+export function validatePartialPreferences(updates: Partial<UserPreferences>): Partial<UserPreferences> {
+  const partialSchema = userPreferencesSchema.partial();
+  return partialSchema.parse(updates);
+}
