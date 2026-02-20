@@ -1,4 +1,3 @@
-
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
@@ -10,11 +9,11 @@ class PreferenceValidator {
   private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
   private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
 
-  static validate(prefs: UserPreferences): string[] {
+  static validate(prefs: UserPreferences): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
-      errors.push(`Invalid theme selection: ${prefs.theme}`);
+      errors.push('Theme must be light, dark, or auto');
     }
 
     if (typeof prefs.notifications !== 'boolean') {
@@ -22,21 +21,17 @@ class PreferenceValidator {
     }
 
     if (!PreferenceValidator.SUPPORTED_LANGUAGES.includes(prefs.language)) {
-      errors.push(`Unsupported language: ${prefs.language}`);
+      errors.push(`Language must be one of: ${PreferenceValidator.SUPPORTED_LANGUAGES.join(', ')}`);
     }
 
     if (!PreferenceValidator.VALID_TIMEZONES.test(prefs.timezone)) {
-      errors.push(`Invalid timezone format: ${prefs.timezone}`);
+      errors.push('Timezone must be in format Area/Location');
     }
 
-    return errors;
-  }
-
-  static validateAndThrow(prefs: UserPreferences): void {
-    const errors = this.validate(prefs);
-    if (errors.length > 0) {
-      throw new Error(`Validation failed: ${errors.join('; ')}`);
-    }
+    return {
+      valid: errors.length === 0,
+      errors
+    };
   }
 }
 
