@@ -1,74 +1,60 @@
-import { z } from 'zod';
-
-const PreferenceSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
-}).strict();
-
-type UserPreferences = z.infer<typeof PreferenceSchema>;
-
-export class PreferenceValidator {
-  static validate(input: unknown): UserPreferences {
-    try {
-      return PreferenceSchema.parse(input);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors = error.errors.map(err => ({
-          field: err.path.join('.'),
-          message: this.formatErrorMessage(err)
-        }));
-        throw new PreferenceValidationError('Invalid preference configuration', fieldErrors);
-      }
-      throw error;
-    }
-  }
-
-  private static formatErrorMessage(error: z.ZodIssue): string {
-    const { code, path } = error;
-    const field = path.join('.');
-
-    switch (code) {
-      case 'invalid_type':
-        return `Field "${field}" must be ${error.expected}, received ${error.received}`;
-      case 'invalid_enum_value':
-        return `Field "${field}" must be one of: ${error.options.join(', ')}`;
-      case 'too_small':
-        return `Field "${field}" must contain at least ${error.minimum} character(s)`;
-      case 'too_big':
-        return `Field "${field}" must contain at most ${error.maximum} character(s)`;
-      default:
-        return `Validation failed for field "${field}"`;
-    }
-  }
-
-  static getDefaultPreferences(): UserPreferences {
-    return PreferenceSchema.parse({});
-  }
+typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    fontSize: number;
+    autoSave: boolean;
 }
 
-export class PreferenceValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly details: Array<{ field: string; message: string }>
-  ) {
-    super(message);
-    this.name = 'PreferenceValidationError';
-  }
+class PreferenceValidator {
+    private static readonly MIN_FONT_SIZE = 8;
+    private static readonly MAX_FONT_SIZE = 72;
+    private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
 
-  toJSON() {
-    return {
-      error: this.name,
-      message: this.message,
-      details: this.details
-    };
-  }
+    static validate(prefs: Partial<UserPreferences>): { isValid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        if (prefs.theme !== undefined && !['light', 'dark', 'auto'].includes(prefs.theme)) {
+            errors.push(`Invalid theme: ${prefs.theme}. Must be 'light', 'dark', or 'auto'.`);
+        }
+
+        if (prefs.fontSize !== undefined) {
+            if (typeof prefs.fontSize !== 'number') {
+                errors.push('Font size must be a number.');
+            } else if (prefs.fontSize < this.MIN_FONT_SIZE || prefs.fontSize > this.MAX_FONT_SIZE) {
+                errors.push(`Font size must be between ${this.MIN_FONT_SIZE} and ${this.MAX_FONT_SIZE}.`);
+            }
+        }
+
+        if (prefs.language !== undefined && !this.SUPPORTED_LANGUAGES.includes(prefs.language)) {
+            errors.push(`Unsupported language: ${prefs.language}. Supported: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
+        }
+
+        if (prefs.notifications !== undefined && typeof prefs.notifications !== 'boolean') {
+            errors.push('Notifications must be a boolean value.');
+        }
+
+        if (prefs.autoSave !== undefined && typeof prefs.autoSave !== 'boolean') {
+            errors.push('Auto-save must be a boolean value.');
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+
+    static getDefaultPreferences(): UserPreferences {
+        return {
+            theme: 'auto',
+            notifications: true,
+            language: 'en',
+            fontSize: 16,
+            autoSave: true
+        };
+    }
 }
+
+export { UserPreferences, PreferenceValidator };
+```
