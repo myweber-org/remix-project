@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 interface UserPayload {
-  userId: string;
+  id: string;
   email: string;
   role: string;
 }
@@ -15,9 +15,13 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
+export const authenticateToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -37,7 +41,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   });
 };
 
-export const authorizeRole = (allowedRoles: string[]) => {
+export const authorizeRole = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
