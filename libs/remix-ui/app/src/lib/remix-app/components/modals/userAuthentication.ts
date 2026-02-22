@@ -55,4 +55,60 @@ export const authorizeRole = (allowedRoles: string[]) => {
 
     next();
   };
+};import jwt from 'jsonwebtoken';
+import { Request, Response, NextFunction } from 'express';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+export interface AuthenticatedRequest extends Request {
+    user?: {
+        userId: string;
+        email: string;
+        role: string;
+    };
+}
+
+export const verifyToken = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Access denied. No token provided.' });
+        return;
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: string };
+        req.user = {
+            userId: decoded.userId,
+            email: decoded.email,
+            role: decoded.role
+        };
+        next();
+    } catch (error) {
+        if (error instanceof jwt.TokenExpiredError) {
+            res.status(401).json({ error: 'Token has expired.' });
+        } else if (error instanceof jwt.JsonWebTokenError) {
+            res.status(401).json({ error: 'Invalid token.' });
+        } else {
+            res.status(500).json({ error: 'Internal server error during authentication.' });
+        }
+    }
+};
+
+export const requireRole = (allowedRoles: string[]) => {
+    return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+        if (!req.user) {
+            res.status(401).json({ error: 'Authentication required.' });
+            return;
+        }
+
+        if (!allowedRoles.includes(req.user.role)) {
+            res.status(403).json({ error: 'Insufficient permissions.' });
+            return;
+        }
+
+        next();
+    };
 };
