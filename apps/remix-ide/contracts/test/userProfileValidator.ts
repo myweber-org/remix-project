@@ -1,14 +1,15 @@
 import { z } from 'zod';
 
 const UserProfileSchema = z.object({
-  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
+  id: z.string().uuid(),
+  username: z.string().min(3).max(30),
   email: z.string().email(),
   age: z.number().int().min(18).max(120).optional(),
   preferences: z.object({
-    theme: z.enum(['light', 'dark', 'system']).default('system'),
-    notifications: z.boolean().default(true)
-  }).default({}),
-  createdAt: z.date().default(() => new Date())
+    theme: z.enum(['light', 'dark', 'system']),
+    notifications: z.boolean().default(true),
+  }).default({ theme: 'system', notifications: true }),
+  createdAt: z.date().default(() => new Date()),
 });
 
 type UserProfile = z.infer<typeof UserProfileSchema>;
@@ -24,4 +25,13 @@ function validateUserProfile(input: unknown): UserProfile {
   }
 }
 
-export { UserProfileSchema, type UserProfile, validateUserProfile };
+function createDefaultProfile(username: string, email: string): UserProfile {
+  const profileData = {
+    username,
+    email,
+    id: crypto.randomUUID(),
+  };
+  return validateUserProfile(profileData);
+}
+
+export { UserProfileSchema, validateUserProfile, createDefaultProfile, type UserProfile };
