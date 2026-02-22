@@ -35,28 +35,14 @@ class UserPreferencesManager {
     };
   }
 
-  private validatePreferences(data: unknown): UserPreferences {
+  private validatePreferences(data: any): UserPreferences {
     const defaults = this.getDefaultPreferences();
     
-    if (!data || typeof data !== 'object') {
-      return defaults;
-    }
-
-    const prefs = data as Record<string, unknown>;
-    
     return {
-      theme: ['light', 'dark', 'auto'].includes(prefs.theme as string) 
-        ? prefs.theme as UserPreferences['theme'] 
-        : defaults.theme,
-      notifications: typeof prefs.notifications === 'boolean' 
-        ? prefs.notifications 
-        : defaults.notifications,
-      language: typeof prefs.language === 'string' 
-        ? prefs.language 
-        : defaults.language,
-      fontSize: typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 32
-        ? prefs.fontSize
-        : defaults.fontSize
+      theme: ['light', 'dark', 'auto'].includes(data.theme) ? data.theme : defaults.theme,
+      notifications: typeof data.notifications === 'boolean' ? data.notifications : defaults.notifications,
+      language: typeof data.language === 'string' && data.language.length === 2 ? data.language : defaults.language,
+      fontSize: typeof data.fontSize === 'number' && data.fontSize >= 10 && data.fontSize <= 24 ? data.fontSize : defaults.fontSize
     };
   }
 
