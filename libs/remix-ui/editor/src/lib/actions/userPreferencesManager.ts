@@ -1,41 +1,36 @@
-import { z } from 'zod';
-
-const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.boolean().default(true),
-  language: z.string().default('en-US'),
-  resultsPerPage: z.number().min(5).max(100).default(20),
-});
-
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-const STORAGE_KEY = 'app_user_preferences';
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
+}
 
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
+  private listeners: Set<(prefs: UserPreferences) => void> = new Set();
 
-  constructor() {
-    this.preferences = this.loadPreferences();
+  constructor(defaultPreferences: UserPreferences) {
+    this.preferences = this.loadPreferences() || defaultPreferences;
   }
 
-  private loadPreferences(): UserPreferences {
+  private loadPreferences(): UserPreferences | null {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return UserPreferencesSchema.parse(parsed);
-      }
-    } catch (error) {
-      console.warn('Failed to load user preferences:', error);
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
     }
-    return UserPreferencesSchema.parse({});
   }
 
   private savePreferences(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
     } catch (error) {
-      console.error('Failed to save user preferences:', error);
+      console.error('Failed to save preferences:', error);
     }
   }
 
@@ -44,19 +39,32 @@ class UserPreferencesManager {
   }
 
   updatePreferences(updates: Partial<UserPreferences>): void {
-    const validated = UserPreferencesSchema.partial().parse(updates);
-    this.preferences = { ...this.preferences, ...validated };
+    this.preferences = { ...this.preferences, ...updates };
     this.savePreferences();
+    this.notifyListeners();
   }
 
-  resetToDefaults(): void {
-    this.preferences = UserPreferencesSchema.parse({});
-    this.savePreferences();
+  subscribe(listener: (prefs: UserPreferences) => void): () => void {
+    this.listeners.add(listener);
+    listener(this.getPreferences());
+    return () => this.listeners.delete(listener);
   }
 
-  validatePreferences(prefs: unknown): UserPreferences {
-    return UserPreferencesSchema.parse(prefs);
+  private notifyListeners(): void {
+    const currentPrefs = this.getPreferences();
+    this.listeners.forEach(listener => listener(currentPrefs));
+  }
+
+  resetToDefaults(defaults: UserPreferences): void {
+    this.updatePreferences(defaults);
   }
 }
 
-export const userPrefsManager = new UserPreferencesManager();
+const defaultUserPreferences: UserPreferences = {
+  theme: 'auto',
+  fontSize: 16,
+  notificationsEnabled: true,
+  language: 'en-US'
+};
+
+export const userPrefsManager = new UserPreferencesManager(defaultUserPreferences);
