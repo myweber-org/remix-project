@@ -83,4 +83,82 @@ export function mergePreferences(
 ): UserPreferences {
   const merged = { ...existing, ...updates };
   return validateUserPreferences(merged);
+}interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+  twoFactorAuth: boolean;
 }
+
+class PreferencesError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferencesError';
+  }
+}
+
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly MIN_FONT_SIZE = 12;
+  private static readonly MAX_FONT_SIZE = 24;
+
+  static validate(preferences: Partial<UserPreferences>): UserPreferences {
+    const validated: UserPreferences = {
+      theme: this.validateTheme(preferences.theme),
+      notifications: this.validateBoolean(preferences.notifications, 'notifications'),
+      language: this.validateLanguage(preferences.language),
+      fontSize: this.validateFontSize(preferences.fontSize),
+      twoFactorAuth: this.validateBoolean(preferences.twoFactorAuth, 'twoFactorAuth')
+    };
+
+    return validated;
+  }
+
+  private static validateTheme(theme?: string): UserPreferences['theme'] {
+    if (!theme) return 'auto';
+    
+    if (theme === 'light' || theme === 'dark' || theme === 'auto') {
+      return theme;
+    }
+    
+    throw new PreferencesError(`Invalid theme: ${theme}. Must be 'light', 'dark', or 'auto'`);
+  }
+
+  private static validateBoolean(value: unknown, fieldName: string): boolean {
+    if (typeof value === 'boolean') return value;
+    if (value === undefined) return false;
+    
+    throw new PreferencesError(`Field '${fieldName}' must be a boolean value`);
+  }
+
+  private static validateLanguage(language?: string): string {
+    if (!language) return 'en';
+    
+    if (this.SUPPORTED_LANGUAGES.includes(language)) {
+      return language;
+    }
+    
+    throw new PreferencesError(
+      `Unsupported language: ${language}. Supported: ${this.SUPPORTED_LANGUAGES.join(', ')}`
+    );
+  }
+
+  private static validateFontSize(size?: number): number {
+    if (size === undefined) return 16;
+    
+    if (typeof size !== 'number' || !Number.isInteger(size)) {
+      throw new PreferencesError('Font size must be an integer');
+    }
+    
+    if (size < this.MIN_FONT_SIZE || size > this.MAX_FONT_SIZE) {
+      throw new PreferencesError(
+        `Font size must be between ${this.MIN_FONT_SIZE} and ${this.MAX_FONT_SIZE}`
+      );
+    }
+    
+    return size;
+  }
+}
+
+export { UserPreferencesValidator, UserPreferences, PreferencesError };
