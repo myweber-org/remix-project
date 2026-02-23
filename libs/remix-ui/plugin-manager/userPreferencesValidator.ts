@@ -1,56 +1,45 @@
 import { z } from 'zod';
 
-export const UserPreferencesSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.object({
-    email: z.boolean().default(true),
-    push: z.boolean().default(false),
-    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
-  }),
-  privacy: z.object({
-    profileVisibility: z.enum(['public', 'private', 'friends']).default('friends'),
-    searchIndexing: z.boolean().default(true)
-  }),
-  language: z.string().min(2).max(5).default('en')
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const preferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.boolean(),
+  language: z.string().min(2).max(5),
+  fontSize: z.number().min(12).max(24)
 });
 
-export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
 export class PreferencesValidator {
-  static validate(input: unknown): UserPreferences {
+  static validate(preferences: unknown): UserPreferences {
     try {
-      return UserPreferencesSchema.parse(input);
+      return preferencesSchema.parse(preferences) as UserPreferences;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const issues = error.issues.map(issue => ({
-          path: issue.path.join('.'),
-          message: issue.message
-        }));
-        throw new PreferencesValidationError('Invalid preferences format', issues);
+        const errorMessages = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Validation failed: ${errorMessages.join(', ')}`);
       }
-      throw error;
+      throw new Error('Invalid preferences format');
     }
   }
 
-  static getDefaults(): UserPreferences {
-    return UserPreferencesSchema.parse({});
+  static createDefault(): UserPreferences {
+    return {
+      theme: 'auto',
+      notifications: true,
+      language: 'en',
+      fontSize: 16
+    };
   }
-}
 
-export class PreferencesValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly issues: Array<{ path: string; message: string }>
-  ) {
-    super(message);
-    this.name = 'PreferencesValidationError';
+  static mergeWithDefaults(partial: Partial<UserPreferences>): UserPreferences {
+    const defaults = this.createDefault();
+    return { ...defaults, ...partial };
   }
-}
-
-export function mergePreferences(
-  existing: Partial<UserPreferences>,
-  updates: Partial<UserPreferences>
-): UserPreferences {
-  const merged = { ...existing, ...updates };
-  return PreferencesValidator.validate(merged);
 }
