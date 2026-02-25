@@ -13,7 +13,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const VALID_RESULTS_PER_PAGE = [10, 20, 50, 100];
+const MIN_RESULTS_PER_PAGE = 10;
+const MAX_RESULTS_PER_PAGE = 100;
 
 function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
   const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
@@ -30,29 +31,33 @@ function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
     validated.language = prefs.language;
   }
 
-  if (prefs.resultsPerPage && VALID_RESULTS_PER_PAGE.includes(prefs.resultsPerPage)) {
-    validated.resultsPerPage = prefs.resultsPerPage;
+  if (typeof prefs.resultsPerPage === 'number') {
+    validated.resultsPerPage = Math.max(
+      MIN_RESULTS_PER_PAGE,
+      Math.min(MAX_RESULTS_PER_PAGE, prefs.resultsPerPage)
+    );
   }
 
   return validated;
 }
 
-function savePreferences(prefs: Partial<UserPreferences>): void {
-  const validatedPrefs = validatePreferences(prefs);
-  localStorage.setItem('userPreferences', JSON.stringify(validatedPrefs));
-}
-
-function loadPreferences(): UserPreferences {
-  const stored = localStorage.getItem('userPreferences');
-  if (stored) {
-    try {
+function loadUserPreferences(): UserPreferences {
+  try {
+    const stored = localStorage.getItem('userPreferences');
+    if (stored) {
       const parsed = JSON.parse(stored);
       return validatePreferences(parsed);
-    } catch {
-      return DEFAULT_PREFERENCES;
     }
+  } catch (error) {
+    console.warn('Failed to load user preferences:', error);
   }
   return DEFAULT_PREFERENCES;
 }
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+function saveUserPreferences(prefs: Partial<UserPreferences>): void {
+  const current = loadUserPreferences();
+  const updated = validatePreferences({ ...current, ...prefs });
+  localStorage.setItem('userPreferences', JSON.stringify(updated));
+}
+
+export { UserPreferences, loadUserPreferences, saveUserPreferences };
