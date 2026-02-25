@@ -1,99 +1,18 @@
-import { z } from 'zod';
-
-const PreferenceSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
-  notifications: z.boolean().default(true),
-  language: z.string().min(2).default('en'),
-  fontSize: z.number().min(8).max(32).default(14),
-  autoSave: z.boolean().default(true),
-  lastUpdated: z.date().optional()
-});
-
-type UserPreferences = z.infer<typeof PreferenceSchema>;
-
-class PreferencesManager {
-  private static readonly STORAGE_KEY = 'user_preferences';
-  private preferences: UserPreferences;
-
-  constructor() {
-    this.preferences = this.loadPreferences();
-  }
-
-  private loadPreferences(): UserPreferences {
-    try {
-      const stored = localStorage.getItem(PreferencesManager.STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        parsed.lastUpdated = parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined;
-        return PreferenceSchema.parse(parsed);
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences, using defaults:', error);
-    }
-    return PreferenceSchema.parse({});
-  }
-
-  private savePreferences(): void {
-    try {
-      const data = { ...this.preferences, lastUpdated: new Date() };
-      localStorage.setItem(PreferencesManager.STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.error('Failed to save preferences:', error);
-    }
-  }
-
-  getPreferences(): Readonly<UserPreferences> {
-    return { ...this.preferences };
-  }
-
-  updatePreferences(updates: Partial<UserPreferences>): boolean {
-    try {
-      const merged = { ...this.preferences, ...updates };
-      const validated = PreferenceSchema.parse(merged);
-      this.preferences = validated;
-      this.savePreferences();
-      return true;
-    } catch (error) {
-      console.error('Invalid preferences update:', error);
-      return false;
-    }
-  }
-
-  resetToDefaults(): void {
-    this.preferences = PreferenceSchema.parse({});
-    this.savePreferences();
-  }
-
-  hasUnsavedChanges(current: Partial<UserPreferences>): boolean {
-    return Object.keys(current).some(key => {
-      const typedKey = key as keyof UserPreferences;
-      return current[typedKey] !== this.preferences[typedKey];
-    });
-  }
-}
-
-export const preferencesManager = new PreferencesManager();typescript
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  language: string;
-  notificationsEnabled: boolean;
   fontSize: number;
-  autoSaveInterval: number;
+  notificationsEnabled: boolean;
+  language: string;
 }
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'auto',
-  language: 'en-US',
+  fontSize: 16,
   notificationsEnabled: true,
-  fontSize: 14,
-  autoSaveInterval: 30000
+  language: 'en-US'
 };
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'];
-const MIN_FONT_SIZE = 8;
-const MAX_FONT_SIZE = 32;
-const MIN_AUTO_SAVE_INTERVAL = 5000;
-const MAX_AUTO_SAVE_INTERVAL = 300000;
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
 
 class UserPreferencesManager {
   private preferences: UserPreferences;
@@ -102,11 +21,11 @@ class UserPreferencesManager {
     this.preferences = this.loadPreferences();
   }
 
-  public getPreferences(): UserPreferences {
+  getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  public updatePreferences(updates: Partial<UserPreferences>): boolean {
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
     const newPreferences = { ...this.preferences, ...updates };
     
     if (!this.validatePreferences(newPreferences)) {
@@ -118,22 +37,21 @@ class UserPreferencesManager {
     return true;
   }
 
-  public resetToDefaults(): void {
+  resetToDefaults(): void {
     this.preferences = { ...DEFAULT_PREFERENCES };
     this.savePreferences();
   }
 
   private validatePreferences(prefs: UserPreferences): boolean {
+    if (!['light', 'dark', 'auto'].includes(prefs.theme)) {
+      return false;
+    }
+
+    if (prefs.fontSize < 8 || prefs.fontSize > 32) {
+      return false;
+    }
+
     if (!VALID_LANGUAGES.includes(prefs.language)) {
-      return false;
-    }
-
-    if (prefs.fontSize < MIN_FONT_SIZE || prefs.fontSize > MAX_FONT_SIZE) {
-      return false;
-    }
-
-    if (prefs.autoSaveInterval < MIN_AUTO_SAVE_INTERVAL || 
-        prefs.autoSaveInterval > MAX_AUTO_SAVE_INTERVAL) {
       return false;
     }
 
@@ -145,16 +63,11 @@ class UserPreferencesManager {
       const stored = localStorage.getItem('userPreferences');
       if (stored) {
         const parsed = JSON.parse(stored);
-        const merged = { ...DEFAULT_PREFERENCES, ...parsed };
-        
-        if (this.validatePreferences(merged)) {
-          return merged;
-        }
+        return this.validatePreferences(parsed) ? parsed : { ...DEFAULT_PREFERENCES };
       }
     } catch (error) {
-      console.warn('Failed to load user preferences:', error);
+      console.warn('Failed to load preferences from storage');
     }
-    
     return { ...DEFAULT_PREFERENCES };
   }
 
@@ -162,24 +75,9 @@ class UserPreferencesManager {
     try {
       localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
     } catch (error) {
-      console.error('Failed to save user preferences:', error);
-    }
-  }
-
-  public exportPreferences(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
-
-  public importPreferences(json: string): boolean {
-    try {
-      const imported = JSON.parse(json);
-      return this.updatePreferences(imported);
-    } catch (error) {
-      console.error('Failed to import preferences:', error);
-      return false;
+      console.error('Failed to save preferences to storage');
     }
   }
 }
 
 export { UserPreferencesManager, type UserPreferences };
-```
