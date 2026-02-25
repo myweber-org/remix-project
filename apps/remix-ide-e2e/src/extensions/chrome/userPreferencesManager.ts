@@ -166,4 +166,84 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notificationsEnabled: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  fontSize: z.number().min(8).max(32).default(14),
+  autoSave: z.boolean().default(true),
+  lastUpdated: z.date().optional()
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'app_user_preferences';
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return UserPreferencesSchema.parse({});
+
+      const parsed = JSON.parse(stored);
+      const result = UserPreferencesSchema.safeParse({
+        ...parsed,
+        lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined
+      });
+
+      return result.success ? result.data : UserPreferencesSchema.parse({});
+    } catch {
+      return UserPreferencesSchema.parse({});
+    }
+  }
+
+  private savePreferences(): void {
+    const dataToStore = {
+      ...this.preferences,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const validationResult = UserPreferencesSchema.partial().safeParse(updates);
+    if (!validationResult.success) {
+      throw new Error(`Invalid preferences update: ${validationResult.error.message}`);
+    }
+
+    this.preferences = {
+      ...this.preferences,
+      ...validationResult.data
+    };
+    this.savePreferences();
+  }
+
+  resetToDefaults(): void {
+    this.preferences = UserPreferencesSchema.parse({});
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  hasUnsavedChanges(): boolean {
+    const current = this.getPreferences();
+    const defaults = UserPreferencesSchema.parse({});
+    
+    return Object.keys(defaults).some(key => {
+      const typedKey = key as keyof UserPreferences;
+      return current[typedKey] !== defaults[typedKey];
+    });
+  }
+}
+
+export const userPreferencesManager = new UserPreferencesManager();
