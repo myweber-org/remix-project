@@ -255,4 +255,108 @@ class UserPreferencesManager {
   }
 }
 
+export { UserPreferencesManager, type UserPreferences };typescript
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notifications: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notifications: true,
+  fontSize: 14
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 24;
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem('userPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validatePreferences(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  private validatePreferences(data: any): UserPreferences {
+    const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+    if (data.theme && ['light', 'dark', 'auto'].includes(data.theme)) {
+      validated.theme = data.theme;
+    }
+
+    if (data.language && VALID_LANGUAGES.includes(data.language)) {
+      validated.language = data.language;
+    }
+
+    if (typeof data.notifications === 'boolean') {
+      validated.notifications = data.notifications;
+    }
+
+    if (typeof data.fontSize === 'number') {
+      validated.fontSize = Math.max(MIN_FONT_SIZE, 
+        Math.min(MAX_FONT_SIZE, data.fontSize));
+    }
+
+    return validated;
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): boolean {
+    const newPreferences = {
+      ...this.preferences,
+      ...updates
+    };
+
+    const validated = this.validatePreferences(newPreferences);
+    
+    try {
+      localStorage.setItem('userPreferences', JSON.stringify(validated));
+      this.preferences = validated;
+      return true;
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+      return false;
+    }
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): boolean {
+    return this.updatePreferences(DEFAULT_PREFERENCES);
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  importPreferences(jsonString: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return this.updatePreferences(parsed);
+    } catch (error) {
+      console.error('Invalid preferences format:', error);
+      return false;
+    }
+  }
+}
+
 export { UserPreferencesManager, type UserPreferences };
+```
