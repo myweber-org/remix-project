@@ -2,56 +2,50 @@ interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   notifications: boolean;
   language: string;
-  resultsPerPage: number;
+  timezone: string;
 }
 
-const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'auto',
-  notifications: true,
-  language: 'en-US',
-  resultsPerPage: 20
-};
+function validateUserPreferences(prefs: UserPreferences): boolean {
+  const validThemes = ['light', 'dark', 'auto'];
+  const validLanguages = ['en', 'es', 'fr', 'de'];
+  const timezoneRegex = /^[A-Za-z_]+\/[A-Za-z_]+$/;
 
-const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
-const VALID_RESULTS_PER_PAGE = [10, 20, 50, 100];
-
-function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
-  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
-
-  if (prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme)) {
-    validated.theme = prefs.theme;
+  if (!validThemes.includes(prefs.theme)) {
+    console.error('Invalid theme selected');
+    return false;
   }
 
-  if (typeof prefs.notifications === 'boolean') {
-    validated.notifications = prefs.notifications;
+  if (typeof prefs.notifications !== 'boolean') {
+    console.error('Notifications must be boolean');
+    return false;
   }
 
-  if (prefs.language && VALID_LANGUAGES.includes(prefs.language)) {
-    validated.language = prefs.language;
+  if (!validLanguages.includes(prefs.language)) {
+    console.error('Unsupported language');
+    return false;
   }
 
-  if (prefs.resultsPerPage && VALID_RESULTS_PER_PAGE.includes(prefs.resultsPerPage)) {
-    validated.resultsPerPage = prefs.resultsPerPage;
+  if (!timezoneRegex.test(prefs.timezone)) {
+    console.error('Invalid timezone format');
+    return false;
   }
 
-  return validated;
+  return true;
 }
 
-function savePreferences(prefs: Partial<UserPreferences>): void {
-  const validatedPrefs = validatePreferences(prefs);
-  localStorage.setItem('userPreferences', JSON.stringify(validatedPrefs));
-}
+function updateUserPreferences(newPrefs: Partial<UserPreferences>): UserPreferences {
+  const defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    timezone: 'UTC'
+  };
 
-function loadPreferences(): UserPreferences {
-  const stored = localStorage.getItem('userPreferences');
-  if (!stored) return DEFAULT_PREFERENCES;
+  const mergedPreferences = { ...defaultPreferences, ...newPrefs };
 
-  try {
-    const parsed = JSON.parse(stored);
-    return validatePreferences(parsed);
-  } catch {
-    return DEFAULT_PREFERENCES;
+  if (validateUserPreferences(mergedPreferences)) {
+    return mergedPreferences;
   }
-}
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+  return defaultPreferences;
+}
