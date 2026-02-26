@@ -2,9 +2,10 @@ import { z } from 'zod';
 
 const UserPreferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notificationsEnabled: z.boolean().default(true),
   language: z.string().min(2).default('en'),
-  notifications: z.boolean().default(true),
-  fontSize: z.number().min(12).max(24).default(16),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+  autoSaveInterval: z.number().min(0).max(300).default(60)
 });
 
 type UserPreferences = z.infer<typeof UserPreferencesSchema>;
@@ -26,46 +27,38 @@ class UserPreferencesManager {
         return UserPreferencesSchema.parse(parsed);
       }
     } catch (error) {
-      console.warn('Failed to load preferences, using defaults:', error);
+      console.warn('Failed to load preferences from storage:', error);
     }
     return UserPreferencesSchema.parse({});
   }
 
   private savePreferences(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
   }
 
   getPreferences(): UserPreferences {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): void {
-    try {
-      const validated = UserPreferencesSchema.partial().parse(updates);
-      this.preferences = { ...this.preferences, ...validated };
-      this.savePreferences();
-    } catch (error) {
-      throw new Error(`Invalid preferences update: ${error}`);
-    }
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const validated = UserPreferencesSchema.partial().parse(updates);
+    this.preferences = { ...this.preferences, ...validated };
+    this.savePreferences();
+    return this.getPreferences();
   }
 
-  resetToDefaults(): void {
+  resetToDefaults(): UserPreferences {
     this.preferences = UserPreferencesSchema.parse({});
     this.savePreferences();
+    return this.getPreferences();
   }
 
-  exportPreferences(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
-
-  importPreferences(jsonString: string): void {
-    try {
-      const parsed = JSON.parse(jsonString);
-      this.preferences = UserPreferencesSchema.parse(parsed);
-      this.savePreferences();
-    } catch (error) {
-      throw new Error(`Failed to import preferences: ${error}`);
-    }
+  validateExternalData(data: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(data);
   }
 }
 
