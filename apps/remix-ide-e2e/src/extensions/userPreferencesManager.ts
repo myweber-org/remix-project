@@ -236,4 +236,73 @@ const defaultPrefs: UserPreferences = {
   fontSize: 16
 };
 
-export const userPrefsManager = new UserPreferencesManager(defaultPrefs);
+export const userPrefsManager = new UserPreferencesManager(defaultPrefs);interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: string;
+  notificationsEnabled: boolean;
+  itemsPerPage: number;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private defaultPreferences: UserPreferences = {
+    theme: 'light',
+    language: 'en',
+    notificationsEnabled: true,
+    itemsPerPage: 10
+  };
+
+  getPreferences(): UserPreferences {
+    const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+    if (!stored) {
+      return this.defaultPreferences;
+    }
+
+    try {
+      const parsed = JSON.parse(stored);
+      return this.validatePreferences(parsed);
+    } catch {
+      return this.defaultPreferences;
+    }
+  }
+
+  savePreferences(preferences: Partial<UserPreferences>): void {
+    const current = this.getPreferences();
+    const updated = { ...current, ...preferences };
+    const validated = this.validatePreferences(updated);
+    
+    localStorage.setItem(
+      UserPreferencesManager.STORAGE_KEY,
+      JSON.stringify(validated)
+    );
+  }
+
+  resetToDefaults(): void {
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+  }
+
+  private validatePreferences(data: unknown): UserPreferences {
+    if (!data || typeof data !== 'object') {
+      return this.defaultPreferences;
+    }
+
+    const prefs = data as Record<string, unknown>;
+    
+    return {
+      theme: this.isValidTheme(prefs.theme) ? prefs.theme : this.defaultPreferences.theme,
+      language: typeof prefs.language === 'string' ? prefs.language : this.defaultPreferences.language,
+      notificationsEnabled: typeof prefs.notificationsEnabled === 'boolean' 
+        ? prefs.notificationsEnabled 
+        : this.defaultPreferences.notificationsEnabled,
+      itemsPerPage: typeof prefs.itemsPerPage === 'number' 
+        ? Math.max(5, Math.min(100, prefs.itemsPerPage)) 
+        : this.defaultPreferences.itemsPerPage
+    };
+  }
+
+  private isValidTheme(theme: unknown): theme is 'light' | 'dark' {
+    return theme === 'light' || theme === 'dark';
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
