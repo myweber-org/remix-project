@@ -633,3 +633,62 @@ export class UserPreferencesManager {
     return this.preferencesSubject.value;
   }
 }
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private static STORAGE_KEY = 'user_preferences';
+
+  static loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        return { ...DEFAULT_PREFERENCES, ...JSON.parse(stored) };
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from localStorage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  static savePreferences(preferences: Partial<UserPreferences>): UserPreferences {
+    const current = this.loadPreferences();
+    const updated = { ...current, ...preferences };
+    
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.warn('Failed to save preferences to localStorage:', error);
+    }
+    
+    return updated;
+  }
+
+  static resetToDefaults(): UserPreferences {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to reset preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  static getPreference<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
+    const prefs = this.loadPreferences();
+    return prefs[key];
+  }
+}
+
+export { UserPreferencesManager, DEFAULT_PREFERENCES };
+export type { UserPreferences };
