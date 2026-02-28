@@ -15,8 +15,6 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
-
 export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -26,18 +24,27 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      res.status(403).json({ error: 'Invalid or expired token' });
-      return;
+  try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT secret not configured');
     }
 
-    req.user = decoded as UserPayload;
+    const decoded = jwt.verify(token, secret) as UserPayload;
+    req.user = decoded;
     next();
-  });
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: 'Token expired' });
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      res.status(403).json({ error: 'Invalid token' });
+    } else {
+      res.status(500).json({ error: 'Authentication failed' });
+    }
+  }
 };
 
-export const authorizeRole = (...allowedRoles: string[]) => {
+export const authorizeRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -51,62 +58,4 @@ export const authorizeRole = (...allowedRoles: string[]) => {
 
     next();
   };
-};
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-interface UserPayload {
-  userId: string;
-  email: string;
-  role: 'user' | 'admin' | 'moderator';
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: UserPayload;
-    }
-  }
-}
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    res.status(401).json({ error: 'Access token required' });
-    return;
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      res.status(403).json({ error: 'Invalid or expired token' });
-      return;
-    }
-
-    req.user = decoded as UserPayload;
-    next();
-  });
-};
-
-export const authorizeRole = (...allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
-      return;
-    }
-
-    next();
-  };
-};
-
-export const generateToken = (userData: UserPayload): string => {
-  return jwt.sign(userData, JWT_SECRET, { expiresIn: '24h' });
 };
