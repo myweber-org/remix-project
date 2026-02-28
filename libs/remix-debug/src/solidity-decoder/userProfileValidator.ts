@@ -33,4 +33,29 @@ function createDefaultProfile(username: string, email: string): UserProfile {
   });
 }
 
-export { UserProfileSchema, validateUserProfile, createDefaultProfile, type UserProfile };
+export { UserProfileSchema, validateUserProfile, createDefaultProfile, type UserProfile };import { z } from 'zod';
+
+const UserProfileSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string().min(3).max(20),
+  email: z.string().email(),
+  age: z.number().int().min(18).max(120).optional(),
+  preferences: z.object({
+    theme: z.enum(['light', 'dark', 'system']),
+    notifications: z.boolean().default(true),
+  }),
+  createdAt: z.date().default(() => new Date()),
+});
+
+type UserProfile = z.infer<typeof UserProfileSchema>;
+
+function validateUserProfile(data: unknown): UserProfile {
+  return UserProfileSchema.parse(data);
+}
+
+function safeValidateUserProfile(data: unknown) {
+  return UserProfileSchema.safeParse(data);
+}
+
+export { UserProfileSchema, validateUserProfile, safeValidateUserProfile };
+export type { UserProfile };
