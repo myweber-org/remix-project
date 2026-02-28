@@ -1,73 +1,92 @@
-import { z } from 'zod';
-
-const PreferenceSchema = z.object({
-  theme: z.enum(['light', 'dark', 'auto']).default('light'),
-  notifications: z.boolean().default(true),
-  fontSize: z.number().min(12).max(24).default(16),
-  language: z.string().min(2).max(5).default('en'),
-  autoSave: z.boolean().default(true),
-  lastUpdated: z.date().optional()
-});
-
-type UserPreferences = z.infer<typeof PreferenceSchema>;
-
-const STORAGE_KEY = 'user_preferences_v1';
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
 
 class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
   private preferences: UserPreferences;
 
-  constructor() {
+  constructor(defaultPreferences?: Partial<UserPreferences>) {
     this.preferences = this.loadPreferences();
+    if (defaultPreferences) {
+      this.preferences = { ...this.preferences, ...defaultPreferences };
+    }
   }
 
   private loadPreferences(): UserPreferences {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) return PreferenceSchema.parse({});
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    
+    return this.getDefaultPreferences();
+  }
 
-      const parsed = JSON.parse(stored);
-      parsed.lastUpdated = parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined;
-      
-      return PreferenceSchema.parse(parsed);
-    } catch {
-      return PreferenceSchema.parse({});
+  private getDefaultPreferences(): UserPreferences {
+    return {
+      theme: 'auto',
+      language: 'en',
+      notificationsEnabled: true,
+      fontSize: 16
+    };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    const oldPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY, 
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+      this.preferences = oldPreferences;
+      throw new Error('Preferences save failed');
     }
   }
 
-  private savePreferences(): void {
-    const data = { ...this.preferences, lastUpdated: new Date() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
-  getPreferences(): UserPreferences {
+  getPreferences(): Readonly<UserPreferences> {
     return { ...this.preferences };
   }
 
-  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
-    const validated = PreferenceSchema.partial().parse(updates);
-    this.preferences = { ...this.preferences, ...validated };
-    this.savePreferences();
-    return this.getPreferences();
+  resetToDefaults(): void {
+    this.preferences = this.getDefaultPreferences();
+    localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
   }
 
-  resetToDefaults(): UserPreferences {
-    this.preferences = PreferenceSchema.parse({});
-    this.savePreferences();
-    return this.getPreferences();
-  }
+  validatePreferences(prefs: Partial<UserPreferences>): string[] {
+    const errors: string[] = [];
 
-  exportPreferences(): string {
-    return JSON.stringify(this.preferences, null, 2);
-  }
-
-  importPreferences(json: string): UserPreferences {
-    try {
-      const parsed = JSON.parse(json);
-      return this.updatePreferences(parsed);
-    } catch {
-      throw new Error('Invalid preferences format');
+    if (prefs.theme !== undefined && !['light', 'dark', 'auto'].includes(prefs.theme)) {
+      errors.push('Invalid theme value');
     }
+
+    if (prefs.fontSize !== undefined && (prefs.fontSize < 8 || prefs.fontSize > 32)) {
+      errors.push('Font size must be between 8 and 32');
+    }
+
+    if (prefs.language !== undefined && !/^[a-z]{2}(-[A-Z]{2})?$/.test(prefs.language)) {
+      errors.push('Invalid language code format');
+    }
+
+    return errors;
+  }
+
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'dark') return true;
+    if (this.preferences.theme === 'light') return false;
+    
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export { UserPreferencesManager, type UserPreferences };
