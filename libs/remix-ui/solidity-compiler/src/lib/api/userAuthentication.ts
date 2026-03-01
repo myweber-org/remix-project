@@ -15,52 +15,10 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
-
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    res.status(401).json({ error: 'Access token required' });
-    return;
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserPayload;
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(403).json({ error: 'Invalid or expired token' });
-  }
-};
-
-export const authorizeRole = (allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
-      return;
-    }
-
-    next();
-  };
-};
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-interface AuthenticatedRequest extends Request {
-  user?: { id: string; email: string };
-}
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export const authenticateToken = (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): void => {
@@ -78,54 +36,23 @@ export const authenticateToken = (
       return;
     }
 
-    if (decoded && typeof decoded === 'object' && 'id' in decoded && 'email' in decoded) {
-      req.user = { id: decoded.id, email: decoded.email };
-      next();
-    } else {
-      res.status(403).json({ error: 'Malformed token payload' });
-    }
-  });
-};
-
-export const generateAccessToken = (userId: string, userEmail: string): string => {
-  return jwt.sign(
-    { id: userId, email: userEmail },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-};import jwt from 'jsonwebtoken';
-import { Request, Response, NextFunction } from 'express';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-export interface AuthenticatedRequest extends Request {
-  user?: any;
-}
-
-export const authenticateToken = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    res.status(401).json({ error: 'Access token required' });
-    return;
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      res.status(403).json({ error: 'Invalid or expired token' });
-      return;
-    }
-    
-    req.user = user;
+    req.user = decoded as UserPayload;
     next();
   });
 };
 
-export const generateAccessToken = (userData: object): string => {
-  return jwt.sign(userData, JWT_SECRET, { expiresIn: '1h' });
+export const authorizeRole = (...allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+
+    next();
+  };
 };
