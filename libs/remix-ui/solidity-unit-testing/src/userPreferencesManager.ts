@@ -299,4 +299,90 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    fontSize: 14
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 24;
+
+class PreferencesManager {
+    private storageKey = 'user_preferences';
+    
+    validatePreferences(prefs: Partial<UserPreferences>): boolean {
+        if (prefs.theme && !['light', 'dark', 'auto'].includes(prefs.theme)) {
+            return false;
+        }
+        
+        if (prefs.language && !VALID_LANGUAGES.includes(prefs.language)) {
+            return false;
+        }
+        
+        if (prefs.fontSize !== undefined) {
+            if (typeof prefs.fontSize !== 'number' || 
+                prefs.fontSize < MIN_FONT_SIZE || 
+                prefs.fontSize > MAX_FONT_SIZE) {
+                return false;
+            }
+        }
+        
+        if (prefs.notifications !== undefined && typeof prefs.notifications !== 'boolean') {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    loadPreferences(): UserPreferences {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (!stored) return {...DEFAULT_PREFERENCES};
+            
+            const parsed = JSON.parse(stored);
+            if (this.validatePreferences(parsed)) {
+                return {...DEFAULT_PREFERENCES, ...parsed};
+            }
+            return {...DEFAULT_PREFERENCES};
+        } catch {
+            return {...DEFAULT_PREFERENCES};
+        }
+    }
+    
+    savePreferences(prefs: Partial<UserPreferences>): boolean {
+        if (!this.validatePreferences(prefs)) {
+            return false;
+        }
+        
+        try {
+            const current = this.loadPreferences();
+            const updated = {...current, ...prefs};
+            localStorage.setItem(this.storageKey, JSON.stringify(updated));
+            return true;
+        } catch {
+            return false;
+        }
+    }
+    
+    resetToDefaults(): void {
+        localStorage.removeItem(this.storageKey);
+    }
+    
+    getCurrentPreferences(): UserPreferences {
+        return this.loadPreferences();
+    }
+}
+
+export const preferencesManager = new PreferencesManager();
+```
