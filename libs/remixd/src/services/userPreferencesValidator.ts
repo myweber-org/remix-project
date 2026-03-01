@@ -86,4 +86,45 @@ function formatValidationError(error: unknown): string {
 }
 
 export { validateUserPreferences, formatValidationError, PreferenceError };
-export type { UserPreferences };
+export type { UserPreferences };import { z } from 'zod';
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['immediate', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  }),
+  language: z.string().min(2).max(5).default('en')
+});
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const issues = error.issues.map(issue => 
+          `${issue.path.join('.')}: ${issue.message}`
+        ).join(', ');
+        throw new Error(`Invalid preferences: ${issues}`);
+      }
+      throw new Error('Failed to validate preferences');
+    }
+  }
+
+  static getDefaults(): UserPreferences {
+    return UserPreferencesSchema.parse({});
+  }
+
+  static mergeWithDefaults(partial: Partial<UserPreferences>): UserPreferences {
+    const defaults = this.getDefaults();
+    return this.validate({ ...defaults, ...partial });
+  }
+}
