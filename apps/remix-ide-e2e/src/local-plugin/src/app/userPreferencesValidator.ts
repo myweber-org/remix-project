@@ -158,4 +158,57 @@ function mergePreferences(existing: UserPreferences, updates: Partial<UserPrefer
   return { ...existing, ...validatedUpdates };
 }
 
-export { UserPreferences, validateUserPreferences, mergePreferences, PreferencesValidationError };
+export { UserPreferences, validateUserPreferences, mergePreferences, PreferencesValidationError };import { z } from 'zod';
+
+const preferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  }),
+  language: z.string().min(2).max(5).default('en'),
+  timezone: z.string().refine(tz => {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, { message: 'Invalid timezone identifier' }).default('UTC')
+}).refine(data => {
+  if (data.privacy.profileVisibility === 'private' && data.privacy.searchIndexing) {
+    return false;
+  }
+  return true;
+}, { message: 'Private profiles cannot be indexed by search engines', path: ['privacy', 'searchIndexing'] });
+
+export type UserPreferences = z.infer<typeof preferenceSchema>;
+
+export class PreferenceValidator {
+  static validate(input: unknown): { success: boolean; data?: UserPreferences; errors?: string[] } {
+    const result = preferenceSchema.safeParse(input);
+    
+    if (!result.success) {
+      const errors = result.error.errors.map(err => 
+        `${err.path.join('.')}: ${err.message}`
+      );
+      return { success: false, errors };
+    }
+    
+    return { success: true, data: result.data };
+  }
+
+  static getDefaultPreferences(): UserPreferences {
+    return preferenceSchema.parse({});
+  }
+
+  static mergeWithDefaults(partial: Partial<UserPreferences>): UserPreferences {
+    const defaults = this.getDefaultPreferences();
+    return preferenceSchema.parse({ ...defaults, ...partial });
+  }
+}
