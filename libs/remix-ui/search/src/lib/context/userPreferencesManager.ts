@@ -597,4 +597,96 @@ class UserPreferencesManager {
   }
 }
 
-export { UserPreferencesManager, type UserPreferences };
+export { UserPreferencesManager, type UserPreferences };import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('light'),
+  notifications: z.boolean().default(true),
+  language: z.string().min(2).default('en'),
+  resultsPerPage: z.number().min(5).max(100).default(20),
+  autoSave: z.boolean().default(false),
+  lastUpdated: z.date().optional()
+});
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+const STORAGE_KEY = 'app_preferences';
+
+class PreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return PreferenceSchema.parse({
+          ...parsed,
+          lastUpdated: parsed.lastUpdated ? new Date(parsed.lastUpdated) : undefined
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences:', error);
+    }
+    return PreferenceSchema.parse({});
+  }
+
+  private savePreferences(): void {
+    try {
+      const data = {
+        ...this.preferences,
+        lastUpdated: new Date()
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  get<K extends keyof UserPreferences>(key: K): UserPreferences[K] {
+    return this.preferences[key];
+  }
+
+  set<K extends keyof UserPreferences>(key: K, value: UserPreferences[K]): boolean {
+    try {
+      const updated = { ...this.preferences, [key]: value };
+      this.preferences = PreferenceSchema.parse(updated);
+      this.savePreferences();
+      return true;
+    } catch (error) {
+      console.error('Invalid preference value:', error);
+      return false;
+    }
+  }
+
+  getAll(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  reset(): void {
+    this.preferences = PreferenceSchema.parse({});
+    this.savePreferences();
+  }
+
+  export(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  import(data: string): boolean {
+    try {
+      const parsed = JSON.parse(data);
+      this.preferences = PreferenceSchema.parse(parsed);
+      this.savePreferences();
+      return true;
+    } catch (error) {
+      console.error('Invalid import data:', error);
+      return false;
+    }
+  }
+}
+
+export const preferencesManager = new PreferencesManager();
