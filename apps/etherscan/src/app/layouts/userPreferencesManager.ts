@@ -438,4 +438,70 @@ class UserPreferencesManager {
 }
 
 export const preferencesManager = new UserPreferencesManager();
+```typescript
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+  lastUpdated: Date;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14,
+  lastUpdated: new Date()
+};
+
+class UserPreferencesManager {
+  private readonly storageKey = 'user_preferences';
+  
+  getPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (!stored) return DEFAULT_PREFERENCES;
+      
+      const parsed = JSON.parse(stored);
+      return {
+        ...DEFAULT_PREFERENCES,
+        ...parsed,
+        lastUpdated: new Date(parsed.lastUpdated)
+      };
+    } catch {
+      return DEFAULT_PREFERENCES;
+    }
+  }
+  
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const current = this.getPreferences();
+    const updated: UserPreferences = {
+      ...current,
+      ...updates,
+      lastUpdated: new Date()
+    };
+    
+    localStorage.setItem(this.storageKey, JSON.stringify(updated));
+    return updated;
+  }
+  
+  resetToDefaults(): UserPreferences {
+    localStorage.removeItem(this.storageKey);
+    return DEFAULT_PREFERENCES;
+  }
+  
+  hasStoredPreferences(): boolean {
+    return localStorage.getItem(this.storageKey) !== null;
+  }
+  
+  getTheme(): 'light' | 'dark' {
+    const prefs = this.getPreferences();
+    if (prefs.theme !== 'auto') return prefs.theme;
+    
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
 ```
