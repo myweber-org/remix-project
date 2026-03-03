@@ -258,3 +258,78 @@ const defaultPreferences: UserPreferences = {
 };
 
 export const userPrefsManager = new UserPreferencesManager(defaultPreferences);
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+class UserPreferencesManager {
+  private readonly STORAGE_KEY = 'user_preferences';
+  private defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    fontSize: 14
+  };
+
+  getPreferences(): UserPreferences {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return this.validateAndMerge(parsed);
+      } catch {
+        return { ...this.defaultPreferences };
+      }
+    }
+    return { ...this.defaultPreferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const current = this.getPreferences();
+    const merged = { ...current, ...updates };
+    const validated = this.validateAndMerge(merged);
+    
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validated));
+    return validated;
+  }
+
+  resetToDefaults(): UserPreferences {
+    localStorage.removeItem(this.STORAGE_KEY);
+    return { ...this.defaultPreferences };
+  }
+
+  private validateAndMerge(prefs: any): UserPreferences {
+    const validThemes: UserPreferences['theme'][] = ['light', 'dark', 'auto'];
+    const theme = validThemes.includes(prefs.theme) ? prefs.theme : this.defaultPreferences.theme;
+    
+    const notifications = typeof prefs.notifications === 'boolean' 
+      ? prefs.notifications 
+      : this.defaultPreferences.notifications;
+    
+    const language = typeof prefs.language === 'string' && prefs.language.length > 0
+      ? prefs.language
+      : this.defaultPreferences.language;
+    
+    const fontSize = typeof prefs.fontSize === 'number' && prefs.fontSize >= 8 && prefs.fontSize <= 32
+      ? prefs.fontSize
+      : this.defaultPreferences.fontSize;
+
+    return { theme, notifications, language, fontSize };
+  }
+
+  subscribe(callback: (prefs: UserPreferences) => void): () => void {
+    const handler = (event: StorageEvent) => {
+      if (event.key === this.STORAGE_KEY) {
+        callback(this.getPreferences());
+      }
+    };
+    
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
