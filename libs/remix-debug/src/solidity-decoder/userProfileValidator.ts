@@ -59,3 +59,49 @@ function safeValidateUserProfile(data: unknown) {
 
 export { UserProfileSchema, validateUserProfile, safeValidateUserProfile };
 export type { UserProfile };
+interface UserProfile {
+  id: string;
+  email: string;
+  username: string;
+  age?: number;
+  bio?: string;
+}
+
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validateUsername = (username: string): boolean => {
+  return username.length >= 3 && username.length <= 30 && /^[a-zA-Z0-9_]+$/.test(username);
+};
+
+const validateAge = (age: number): boolean => {
+  return age >= 13 && age <= 120;
+};
+
+const validateBio = (bio: string): boolean => {
+  return bio.length <= 500;
+};
+
+export const validateUserProfile = (profile: Partial<UserProfile>): string[] => {
+  const errors: string[] = [];
+
+  if (profile.email !== undefined && !validateEmail(profile.email)) {
+    errors.push('Invalid email format');
+  }
+
+  if (profile.username !== undefined && !validateUsername(profile.username)) {
+    errors.push('Username must be 3-30 characters and contain only letters, numbers, and underscores');
+  }
+
+  if (profile.age !== undefined && !validateAge(profile.age)) {
+    errors.push('Age must be between 13 and 120');
+  }
+
+  if (profile.bio !== undefined && !validateBio(profile.bio)) {
+    errors.push('Bio cannot exceed 500 characters');
+  }
+
+  return errors;
+};
