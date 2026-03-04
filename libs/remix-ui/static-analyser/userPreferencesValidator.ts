@@ -87,4 +87,55 @@ const sanitizePreferences = (prefs: Partial<UserPreferences>): UserPreferences =
   return { ...defaults, ...prefs };
 };
 
-export { UserPreferences, PreferenceError, validatePreferences, sanitizePreferences };
+export { UserPreferences, PreferenceError, validatePreferences, sanitizePreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+}
+
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+const VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+function validateUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const errors: string[] = [];
+
+  if (!prefs.theme || !['light', 'dark', 'auto'].includes(prefs.theme)) {
+    errors.push('Theme must be one of: light, dark, auto');
+  }
+
+  if (typeof prefs.notifications !== 'boolean') {
+    errors.push('Notifications must be a boolean value');
+  }
+
+  if (!prefs.language || !SUPPORTED_LANGUAGES.includes(prefs.language)) {
+    errors.push(`Language must be one of: ${SUPPORTED_LANGUAGES.join(', ')}`);
+  }
+
+  if (!prefs.timezone || !VALID_TIMEZONES.test(prefs.timezone)) {
+    errors.push('Timezone must be in format: Area/Location');
+  }
+
+  if (errors.length > 0) {
+    throw new PreferenceValidationError(`Validation failed:\n${errors.join('\n')}`);
+  }
+
+  return prefs as UserPreferences;
+}
+
+function sanitizePreferences(prefs: UserPreferences): UserPreferences {
+  return {
+    ...prefs,
+    language: prefs.language.toLowerCase(),
+    timezone: prefs.timezone.replace(/\s+/g, '_')
+  };
+}
+
+export { UserPreferences, PreferenceValidationError, validateUserPreferences, sanitizePreferences };
