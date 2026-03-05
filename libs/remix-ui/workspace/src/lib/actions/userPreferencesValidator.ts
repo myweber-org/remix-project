@@ -42,3 +42,52 @@ class PreferenceValidator {
 
 export { UserPreferences, PreferenceValidator };
 ```
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
+
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+const validateUserPreferences = (prefs: Partial<UserPreferences>): UserPreferences => {
+  const defaultPreferences: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    itemsPerPage: 25
+  };
+
+  const validated: UserPreferences = { ...defaultPreferences, ...prefs };
+
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    throw new PreferenceValidationError(`Invalid theme: ${validated.theme}`);
+  }
+
+  if (typeof validated.notifications !== 'boolean') {
+    throw new PreferenceValidationError('Notifications must be boolean');
+  }
+
+  if (typeof validated.language !== 'string' || validated.language.length === 0) {
+    throw new PreferenceValidationError('Language must be non-empty string');
+  }
+
+  if (!Number.isInteger(validated.itemsPerPage) || validated.itemsPerPage < 1 || validated.itemsPerPage > 100) {
+    throw new PreferenceValidationError('Items per page must be integer between 1 and 100');
+  }
+
+  return validated;
+};
+
+const mergePreferences = (existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences => {
+  const merged = { ...existing, ...updates };
+  return validateUserPreferences(merged);
+};
+
+export { UserPreferences, PreferenceValidationError, validateUserPreferences, mergePreferences };
