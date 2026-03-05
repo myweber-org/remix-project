@@ -38,4 +38,39 @@ function mergePreferences(existing: UserPreferences, updates: Partial<UserPrefer
   return validatePreferences({ ...existing, ...updates });
 }
 
-export { UserPreferences, DEFAULT_PREFERENCES, validatePreferences, mergePreferences };
+export { UserPreferences, DEFAULT_PREFERENCES, validatePreferences, mergePreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  itemsPerPage: 25
+};
+
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  return {
+    theme: prefs.theme && ['light', 'dark', 'auto'].includes(prefs.theme) 
+      ? prefs.theme 
+      : DEFAULT_PREFERENCES.theme,
+    notifications: typeof prefs.notifications === 'boolean' 
+      ? prefs.notifications 
+      : DEFAULT_PREFERENCES.notifications,
+    language: typeof prefs.language === 'string' && prefs.language.length >= 2
+      ? prefs.language
+      : DEFAULT_PREFERENCES.language,
+    itemsPerPage: typeof prefs.itemsPerPage === 'number' && prefs.itemsPerPage > 0
+      ? Math.min(prefs.itemsPerPage, 100)
+      : DEFAULT_PREFERENCES.itemsPerPage
+  };
+}
+
+function mergeWithDefaults(prefs: Partial<UserPreferences>): UserPreferences {
+  return { ...DEFAULT_PREFERENCES, ...validatePreferences(prefs) };
+}
+
+export { UserPreferences, validatePreferences, mergeWithDefaults };
