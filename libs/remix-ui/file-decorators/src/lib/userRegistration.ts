@@ -61,4 +61,74 @@ class UserRegistration {
     }
 }
 
-export { UserRegistration, UserData };
+export { UserRegistration, UserData };import { User, UserRepository } from './userRepository';
+import { ValidationError } from './errors/validationError';
+
+export interface RegistrationData {
+    email: string;
+    password: string;
+    username: string;
+    dateOfBirth?: Date;
+}
+
+export class UserRegistrationService {
+    constructor(private userRepository: UserRepository) {}
+
+    async register(data: RegistrationData): Promise<User> {
+        this.validateRegistrationData(data);
+
+        const existingUser = await this.userRepository.findByEmail(data.email);
+        if (existingUser) {
+            throw new ValidationError('Email already registered');
+        }
+
+        const existingUsername = await this.userRepository.findByUsername(data.username);
+        if (existingUsername) {
+            throw new ValidationError('Username already taken');
+        }
+
+        const hashedPassword = await this.hashPassword(data.password);
+        const user = await this.userRepository.create({
+            email: data.email,
+            passwordHash: hashedPassword,
+            username: data.username,
+            dateOfBirth: data.dateOfBirth,
+            registeredAt: new Date(),
+            isActive: true
+        });
+
+        await this.sendWelcomeEmail(user.email);
+        return user;
+    }
+
+    private validateRegistrationData(data: RegistrationData): void {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(data.email)) {
+            throw new ValidationError('Invalid email format');
+        }
+
+        if (data.password.length < 8) {
+            throw new ValidationError('Password must be at least 8 characters long');
+        }
+
+        if (data.username.length < 3 || data.username.length > 20) {
+            throw new ValidationError('Username must be between 3 and 20 characters');
+        }
+
+        if (data.dateOfBirth && data.dateOfBirth > new Date()) {
+            throw new ValidationError('Date of birth cannot be in the future');
+        }
+    }
+
+    private async hashPassword(password: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    private async sendWelcomeEmail(email: string): Promise<void> {
+        console.log(`Sending welcome email to ${email}`);
+    }
+}
