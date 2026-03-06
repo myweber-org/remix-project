@@ -207,4 +207,116 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferencesManager = new UserPreferencesManager();
+export const userPreferencesManager = new UserPreferencesManager();typescript
+interface UserPreferences {
+    theme: 'light' | 'dark' | 'auto';
+    notifications: boolean;
+    language: string;
+    fontSize: number;
+    autoSave: boolean;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'auto',
+    notifications: true,
+    language: 'en-US',
+    fontSize: 14,
+    autoSave: true
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 24;
+
+class UserPreferencesManager {
+    private preferences: UserPreferences;
+
+    constructor() {
+        this.preferences = this.loadPreferences();
+    }
+
+    private loadPreferences(): UserPreferences {
+        try {
+            const stored = localStorage.getItem('userPreferences');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return this.validateAndMerge(parsed);
+            }
+        } catch (error) {
+            console.warn('Failed to load preferences from storage:', error);
+        }
+        return { ...DEFAULT_PREFERENCES };
+    }
+
+    private validateAndMerge(partialPrefs: Partial<UserPreferences>): UserPreferences {
+        const merged = { ...DEFAULT_PREFERENCES, ...partialPrefs };
+        
+        if (!['light', 'dark', 'auto'].includes(merged.theme)) {
+            merged.theme = DEFAULT_PREFERENCES.theme;
+        }
+        
+        if (typeof merged.notifications !== 'boolean') {
+            merged.notifications = DEFAULT_PREFERENCES.notifications;
+        }
+        
+        if (!VALID_LANGUAGES.includes(merged.language)) {
+            merged.language = DEFAULT_PREFERENCES.language;
+        }
+        
+        if (typeof merged.fontSize !== 'number' || 
+            merged.fontSize < MIN_FONT_SIZE || 
+            merged.fontSize > MAX_FONT_SIZE) {
+            merged.fontSize = DEFAULT_PREFERENCES.fontSize;
+        }
+        
+        if (typeof merged.autoSave !== 'boolean') {
+            merged.autoSave = DEFAULT_PREFERENCES.autoSave;
+        }
+        
+        return merged;
+    }
+
+    getPreferences(): UserPreferences {
+        return { ...this.preferences };
+    }
+
+    updatePreferences(updates: Partial<UserPreferences>): boolean {
+        const newPreferences = this.validateAndMerge({
+            ...this.preferences,
+            ...updates
+        });
+        
+        const hasChanged = JSON.stringify(newPreferences) !== JSON.stringify(this.preferences);
+        
+        if (hasChanged) {
+            this.preferences = newPreferences;
+            this.savePreferences();
+            return true;
+        }
+        
+        return false;
+    }
+
+    private savePreferences(): void {
+        try {
+            localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+        } catch (error) {
+            console.error('Failed to save preferences:', error);
+        }
+    }
+
+    resetToDefaults(): void {
+        this.preferences = { ...DEFAULT_PREFERENCES };
+        this.savePreferences();
+    }
+
+    isDarkThemeActive(): boolean {
+        if (this.preferences.theme === 'auto') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        return this.preferences.theme === 'dark';
+    }
+}
+
+export const userPreferences = new UserPreferencesManager();
+```
