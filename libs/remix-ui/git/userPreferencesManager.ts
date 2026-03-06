@@ -234,3 +234,105 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, type UserPreferences };
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+  autoSave: boolean;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14,
+  autoSave: true
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'];
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = { ...DEFAULT_PREFERENCES, ...initialPreferences };
+    this.validateAndFixPreferences();
+  }
+
+  private validateAndFixPreferences(): void {
+    if (!['light', 'dark', 'auto'].includes(this.preferences.theme)) {
+      this.preferences.theme = DEFAULT_PREFERENCES.theme;
+    }
+
+    if (!VALID_LANGUAGES.includes(this.preferences.language)) {
+      this.preferences.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (typeof this.preferences.notificationsEnabled !== 'boolean') {
+      this.preferences.notificationsEnabled = DEFAULT_PREFERENCES.notificationsEnabled;
+    }
+
+    if (typeof this.preferences.fontSize !== 'number' || 
+        this.preferences.fontSize < 8 || 
+        this.preferences.fontSize > 32) {
+      this.preferences.fontSize = DEFAULT_PREFERENCES.fontSize;
+    }
+
+    if (typeof this.preferences.autoSave !== 'boolean') {
+      this.preferences.autoSave = DEFAULT_PREFERENCES.autoSave;
+    }
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    const oldPreferences = { ...this.preferences };
+    this.preferences = { ...this.preferences, ...updates };
+    this.validateAndFixPreferences();
+    
+    return this.getChangedPreferences(oldPreferences, this.preferences);
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+  }
+
+  exportPreferences(): string {
+    return JSON.stringify(this.preferences, null, 2);
+  }
+
+  importPreferences(jsonString: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonString);
+      this.updatePreferences(parsed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private getChangedPreferences(oldPrefs: UserPreferences, newPrefs: UserPreferences): Partial<UserPreferences> {
+    const changed: Partial<UserPreferences> = {};
+    
+    (Object.keys(oldPrefs) as Array<keyof UserPreferences>).forEach(key => {
+      if (oldPrefs[key] !== newPrefs[key]) {
+        changed[key] = newPrefs[key];
+      }
+    });
+
+    return changed;
+  }
+
+  isDarkMode(): boolean {
+    if (this.preferences.theme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return this.preferences.theme === 'dark';
+  }
+}
+
+export { UserPreferencesManager, DEFAULT_PREFERENCES, VALID_LANGUAGES };
+export type { UserPreferences };
