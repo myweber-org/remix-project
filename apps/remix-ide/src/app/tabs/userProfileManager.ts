@@ -3,7 +3,7 @@ interface UserProfile {
   id: string;
   username: string;
   email: string;
-  age: number;
+  age?: number;
   isActive: boolean;
   lastLogin: Date;
 }
@@ -13,51 +13,41 @@ class UserProfileManager {
 
   addProfile(profile: UserProfile): boolean {
     if (this.profiles.has(profile.id)) {
-      console.error(`Profile with ID ${profile.id} already exists`);
       return false;
     }
 
-    if (!this.validateProfile(profile)) {
-      return false;
+    if (!this.validateEmail(profile.email)) {
+      throw new Error('Invalid email format');
+    }
+
+    if (profile.age && profile.age < 0) {
+      throw new Error('Age cannot be negative');
     }
 
     this.profiles.set(profile.id, profile);
-    console.log(`Profile added for user: ${profile.username}`);
     return true;
   }
 
   updateProfile(id: string, updates: Partial<UserProfile>): boolean {
     const existingProfile = this.profiles.get(id);
     if (!existingProfile) {
-      console.error(`Profile with ID ${id} not found`);
       return false;
     }
 
-    const updatedProfile = { ...existingProfile, ...updates };
-    
-    if (!this.validateProfile(updatedProfile)) {
-      return false;
+    if (updates.email && !this.validateEmail(updates.email)) {
+      throw new Error('Invalid email format');
     }
 
-    this.profiles.set(id, updatedProfile);
-    console.log(`Profile updated for user: ${updatedProfile.username}`);
+    if (updates.age && updates.age < 0) {
+      throw new Error('Age cannot be negative');
+    }
+
+    this.profiles.set(id, { ...existingProfile, ...updates });
     return true;
   }
 
   getProfile(id: string): UserProfile | undefined {
     return this.profiles.get(id);
-  }
-
-  deactivateProfile(id: string): boolean {
-    const profile = this.profiles.get(id);
-    if (!profile) {
-      return false;
-    }
-
-    profile.isActive = false;
-    this.profiles.set(id, profile);
-    console.log(`Profile deactivated for user: ${profile.username}`);
-    return true;
   }
 
   getActiveUsers(): UserProfile[] {
@@ -66,54 +56,25 @@ class UserProfileManager {
       .sort((a, b) => b.lastLogin.getTime() - a.lastLogin.getTime());
   }
 
-  private validateProfile(profile: UserProfile): boolean {
-    if (!profile.id || profile.id.trim() === '') {
-      console.error('Profile ID is required');
-      return false;
-    }
+  deactivateInactiveUsers(maxInactiveDays: number): string[] {
+    const deactivatedIds: string[] = [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - maxInactiveDays);
 
-    if (!profile.username || profile.username.trim() === '') {
-      console.error('Username is required');
-      return false;
-    }
+    this.profiles.forEach((profile, id) => {
+      if (profile.isActive && profile.lastLogin < cutoffDate) {
+        profile.isActive = false;
+        deactivatedIds.push(id);
+      }
+    });
 
-    if (!profile.email || !this.isValidEmail(profile.email)) {
-      console.error('Valid email is required');
-      return false;
-    }
-
-    if (profile.age < 0 || profile.age > 150) {
-      console.error('Age must be between 0 and 150');
-      return false;
-    }
-
-    return true;
+    return deactivatedIds;
   }
 
-  private isValidEmail(email: string): boolean {
+  private validateEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
 }
 
-const profileManager = new UserProfileManager();
-
-const sampleProfile: UserProfile = {
-  id: 'user-001',
-  username: 'john_doe',
-  email: 'john@example.com',
-  age: 30,
-  isActive: true,
-  lastLogin: new Date()
-};
-
-profileManager.addProfile(sampleProfile);
-
-const updateResult = profileManager.updateProfile('user-001', { age: 31 });
-console.log(`Update successful: ${updateResult}`);
-
-const retrievedProfile = profileManager.getProfile('user-001');
-console.log('Retrieved profile:', retrievedProfile);
-
-const activeUsers = profileManager.getActiveUsers();
-console.log(`Active users count: ${activeUsers.length}`);
+export { UserProfileManager, UserProfile };
