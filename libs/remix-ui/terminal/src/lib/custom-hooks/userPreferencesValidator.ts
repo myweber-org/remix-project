@@ -85,3 +85,65 @@ class UserPreferencesValidator {
 }
 
 export { UserPreferencesValidator, PreferenceValidationError, UserPreferences };
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+  autoSave: boolean;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14,
+  autoSave: true
+};
+
+const THEME_VALUES = ['light', 'dark', 'auto'] as const;
+
+class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    if (!input || typeof input !== 'object') {
+      return DEFAULT_PREFERENCES;
+    }
+
+    const partial = input as Partial<UserPreferences>;
+    
+    return {
+      theme: this.validateTheme(partial.theme),
+      notifications: this.validateBoolean(partial.notifications, DEFAULT_PREFERENCES.notifications),
+      language: this.validateLanguage(partial.language),
+      fontSize: this.validateFontSize(partial.fontSize),
+      autoSave: this.validateBoolean(partial.autoSave, DEFAULT_PREFERENCES.autoSave)
+    };
+  }
+
+  private static validateTheme(theme: unknown): UserPreferences['theme'] {
+    if (typeof theme === 'string' && THEME_VALUES.includes(theme as any)) {
+      return theme as UserPreferences['theme'];
+    }
+    return DEFAULT_PREFERENCES.theme;
+  }
+
+  private static validateBoolean(value: unknown, defaultValue: boolean): boolean {
+    return typeof value === 'boolean' ? value : defaultValue;
+  }
+
+  private static validateLanguage(lang: unknown): string {
+    if (typeof lang === 'string' && /^[a-z]{2}-[A-Z]{2}$/.test(lang)) {
+      return lang;
+    }
+    return DEFAULT_PREFERENCES.language;
+  }
+
+  private static validateFontSize(size: unknown): number {
+    if (typeof size === 'number' && size >= 8 && size <= 32) {
+      return Math.round(size);
+    }
+    return DEFAULT_PREFERENCES.fontSize;
+  }
+}
+
+export { UserPreferences, PreferencesValidator };
