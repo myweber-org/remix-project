@@ -55,4 +55,64 @@ class PreferenceValidator {
   }
 }
 
-export { UserPreferences, PreferenceValidator };
+export { UserPreferences, PreferenceValidator };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+}
+
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+  static validate(preferences: Partial<UserPreferences>): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (preferences.theme !== undefined) {
+      if (!['light', 'dark', 'auto'].includes(preferences.theme)) {
+        errors.push(`Invalid theme: ${preferences.theme}`);
+      }
+    }
+
+    if (preferences.notifications !== undefined) {
+      if (typeof preferences.notifications !== 'boolean') {
+        errors.push('Notifications must be a boolean value');
+      }
+    }
+
+    if (preferences.language !== undefined) {
+      if (!UserPreferencesValidator.SUPPORTED_LANGUAGES.includes(preferences.language)) {
+        errors.push(`Unsupported language: ${preferences.language}`);
+      }
+    }
+
+    if (preferences.timezone !== undefined) {
+      if (!UserPreferencesValidator.VALID_TIMEZONES.test(preferences.timezone)) {
+        errors.push(`Invalid timezone format: ${preferences.timezone}`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  static sanitize(preferences: Partial<UserPreferences>): Partial<UserPreferences> {
+    const sanitized: Partial<UserPreferences> = { ...preferences };
+
+    if (sanitized.theme === 'auto') {
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+      sanitized.theme = prefersDark ? 'dark' : 'light';
+    }
+
+    if (sanitized.language && !UserPreferencesValidator.SUPPORTED_LANGUAGES.includes(sanitized.language)) {
+      sanitized.language = 'en';
+    }
+
+    return sanitized;
+  }
+}
+
+export { UserPreferences, UserPreferencesValidator };
