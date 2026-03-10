@@ -580,4 +580,71 @@ class UserPreferencesManager {
 }
 
 export { UserPreferencesManager, DEFAULT_PREFERENCES };
-export type { UserPreferences };
+export type { UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark';
+  fontSize: number;
+  notificationsEnabled: boolean;
+}
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+  private static readonly DEFAULT_PREFERENCES: UserPreferences = {
+    theme: 'light',
+    fontSize: 14,
+    notificationsEnabled: true
+  };
+
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(UserPreferencesManager.STORAGE_KEY);
+      if (stored) {
+        return { ...UserPreferencesManager.DEFAULT_PREFERENCES, ...JSON.parse(stored) };
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+  }
+
+  private savePreferences(): void {
+    try {
+      localStorage.setItem(
+        UserPreferencesManager.STORAGE_KEY,
+        JSON.stringify(this.preferences)
+      );
+    } catch (error) {
+      console.warn('Failed to save preferences to storage:', error);
+    }
+  }
+
+  getPreferences(): Readonly<UserPreferences> {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    this.preferences = { ...this.preferences, ...updates };
+    this.savePreferences();
+  }
+
+  resetToDefaults(): void {
+    this.preferences = { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+    this.savePreferences();
+  }
+
+  clearPreferences(): void {
+    try {
+      localStorage.removeItem(UserPreferencesManager.STORAGE_KEY);
+      this.preferences = { ...UserPreferencesManager.DEFAULT_PREFERENCES };
+    } catch (error) {
+      console.warn('Failed to clear preferences:', error);
+    }
+  }
+}
+
+export default UserPreferencesManager;
