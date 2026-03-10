@@ -38,3 +38,53 @@ export function mergePreferences(existing: Partial<UserPreferences>, updates: Pa
   const merged = { ...current, ...changes };
   return PreferenceSchema.parse(merged);
 }
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  fontSize: 14
+};
+
+const THEME_VALUES = ['light', 'dark', 'auto'] as const;
+
+function validatePreferences(input: unknown): UserPreferences {
+  if (!input || typeof input !== 'object') {
+    return DEFAULT_PREFERENCES;
+  }
+
+  const partial = input as Partial<UserPreferences>;
+  const validated: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+  if (partial.theme && THEME_VALUES.includes(partial.theme)) {
+    validated.theme = partial.theme;
+  }
+
+  if (typeof partial.notifications === 'boolean') {
+    validated.notifications = partial.notifications;
+  }
+
+  if (typeof partial.language === 'string' && partial.language.trim().length > 0) {
+    validated.language = partial.language.trim();
+  }
+
+  if (typeof partial.fontSize === 'number' && partial.fontSize >= 8 && partial.fontSize <= 32) {
+    validated.fontSize = Math.round(partial.fontSize);
+  }
+
+  return validated;
+}
+
+function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const validatedUpdates = validatePreferences(updates);
+  return { ...existing, ...validatedUpdates };
+}
+
+export { validatePreferences, mergePreferences, DEFAULT_PREFERENCES };
+export type { UserPreferences };
