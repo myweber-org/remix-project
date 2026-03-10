@@ -151,4 +151,82 @@ class UserPreferencesManager {
   }
 }
 
+export { UserPreferencesManager, type UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  resultsPerPage: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: true,
+  language: 'en-US',
+  resultsPerPage: 20
+};
+
+const VALID_LANGUAGES = ['en-US', 'es-ES', 'fr-FR', 'de-DE'];
+const MIN_RESULTS_PER_PAGE = 5;
+const MAX_RESULTS_PER_PAGE = 100;
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor(initialPreferences?: Partial<UserPreferences>) {
+    this.preferences = this.mergeWithDefaults(initialPreferences);
+  }
+
+  private mergeWithDefaults(partialPrefs?: Partial<UserPreferences>): UserPreferences {
+    const merged = { ...DEFAULT_PREFERENCES, ...partialPrefs };
+    
+    if (!VALID_LANGUAGES.includes(merged.language)) {
+      merged.language = DEFAULT_PREFERENCES.language;
+    }
+
+    if (merged.resultsPerPage < MIN_RESULTS_PER_PAGE || merged.resultsPerPage > MAX_RESULTS_PER_PAGE) {
+      merged.resultsPerPage = DEFAULT_PREFERENCES.resultsPerPage;
+    }
+
+    return merged;
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): UserPreferences {
+    this.preferences = this.mergeWithDefaults({ ...this.preferences, ...updates });
+    this.saveToStorage();
+    return this.getPreferences();
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  resetToDefaults(): UserPreferences {
+    this.preferences = { ...DEFAULT_PREFERENCES };
+    this.saveToStorage();
+    return this.getPreferences();
+  }
+
+  private saveToStorage(): void {
+    try {
+      localStorage.setItem('userPreferences', JSON.stringify(this.preferences));
+    } catch (error) {
+      console.warn('Failed to save preferences to localStorage:', error);
+    }
+  }
+
+  static loadFromStorage(): UserPreferencesManager {
+    try {
+      const stored = localStorage.getItem('userPreferences');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new UserPreferencesManager(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from localStorage:', error);
+    }
+    
+    return new UserPreferencesManager();
+  }
+}
+
 export { UserPreferencesManager, type UserPreferences };
