@@ -1,37 +1,51 @@
-import { z } from 'zod';
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone: string;
+}
 
-const ThemePreferenceSchema = z.enum(['light', 'dark', 'system']);
-const NotificationSettingsSchema = z.object({
-  email: z.boolean(),
-  push: z.boolean(),
-  frequency: z.enum(['immediate', 'daily', 'weekly']).optional(),
-});
-
-const UserPreferencesSchema = z.object({
-  userId: z.string().uuid(),
-  theme: ThemePreferenceSchema.default('system'),
-  notifications: NotificationSettingsSchema.default({
-    email: true,
-    push: false,
-  }),
-  language: z.string().min(2).max(5).default('en'),
-  timezone: z.string().optional(),
-  createdAt: z.date().default(() => new Date()),
-});
-
-type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-
-export function validateUserPreferences(input: unknown): UserPreferences {
-  try {
-    return UserPreferencesSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw new Error(`Invalid preferences: ${error.errors.map(e => e.message).join(', ')}`);
-    }
-    throw error;
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
   }
 }
 
-export function getDefaultPreferences(userId: string): UserPreferences {
-  return UserPreferencesSchema.parse({ userId });
+class UserPreferencesValidator {
+  private static readonly SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'ja'];
+  private static readonly VALID_TIMEZONES = /^[A-Za-z_]+\/[A-Za-z_]+$/;
+
+  static validate(preferences: Partial<UserPreferences>): UserPreferences {
+    const errors: string[] = [];
+
+    if (!preferences.theme || !['light', 'dark', 'auto'].includes(preferences.theme)) {
+      errors.push('Theme must be one of: light, dark, auto');
+    }
+
+    if (preferences.notifications !== undefined && typeof preferences.notifications !== 'boolean') {
+      errors.push('Notifications must be a boolean value');
+    }
+
+    if (preferences.language && !this.SUPPORTED_LANGUAGES.includes(preferences.language)) {
+      errors.push(`Language must be one of: ${this.SUPPORTED_LANGUAGES.join(', ')}`);
+    }
+
+    if (preferences.timezone && !this.VALID_TIMEZONES.test(preferences.timezone)) {
+      errors.push('Timezone must be in format: Area/Location (e.g., America/New_York)');
+    }
+
+    if (errors.length > 0) {
+      throw new PreferenceValidationError(`Validation failed:\n${errors.join('\n')}`);
+    }
+
+    return {
+      theme: preferences.theme || 'auto',
+      notifications: preferences.notifications ?? true,
+      language: preferences.language || 'en',
+      timezone: preferences.timezone || 'UTC',
+    };
+  }
 }
+
+export { UserPreferencesValidator, PreferenceValidationError, UserPreferences };
