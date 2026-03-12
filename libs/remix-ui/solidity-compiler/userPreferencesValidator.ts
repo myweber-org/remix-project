@@ -136,4 +136,45 @@ class UserPreferencesValidator {
   }
 }
 
-export { UserPreferencesValidator, PreferenceError, UserPreferences };
+export { UserPreferencesValidator, PreferenceError, UserPreferences };import { z } from 'zod';
+
+export const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  notifications: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(false),
+    frequency: z.enum(['instant', 'daily', 'weekly']).default('daily')
+  }),
+  privacy: z.object({
+    profileVisibility: z.enum(['public', 'friends', 'private']).default('friends'),
+    searchIndexing: z.boolean().default(true)
+  }).default({})
+}).refine(
+  (data) => !(data.privacy.profileVisibility === 'private' && data.privacy.searchIndexing),
+  {
+    message: 'Search indexing must be disabled for private profiles',
+    path: ['privacy', 'searchIndexing']
+  }
+);
+
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+export class PreferencesValidator {
+  static validate(input: unknown): UserPreferences {
+    try {
+      return UserPreferencesSchema.parse(input);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const formattedErrors = error.errors.map(err => 
+          `${err.path.join('.')}: ${err.message}`
+        );
+        throw new Error(`Validation failed:\n${formattedErrors.join('\n')}`);
+      }
+      throw error;
+    }
+  }
+
+  static getDefaultPreferences(): UserPreferences {
+    return UserPreferencesSchema.parse({});
+  }
+}
