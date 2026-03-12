@@ -79,4 +79,44 @@ export function mergePreferences(existing: Partial<UserPreferences>, updates: Pa
   const current = PreferenceSchema.partial().parse(existing);
   const merged = { ...current, ...updates };
   return validatePreferences(merged);
+}import { z } from 'zod';
+
+const PreferenceSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']),
+  notifications: z.object({
+    email: z.boolean(),
+    push: z.boolean(),
+    frequency: z.enum(['instant', 'daily', 'weekly']).optional()
+  }),
+  language: z.string().min(2).max(5),
+  timezone: z.string(),
+  twoFactorEnabled: z.boolean().default(false)
+}).strict();
+
+type UserPreferences = z.infer<typeof PreferenceSchema>;
+
+export function validatePreferences(input: unknown): UserPreferences {
+  try {
+    return PreferenceSchema.parse(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errorMessages = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      throw new Error(`Invalid preferences: ${errorMessages.join('; ')}`);
+    }
+    throw error;
+  }
+}
+
+export function getDefaultPreferences(): UserPreferences {
+  return {
+    theme: 'auto',
+    notifications: {
+      email: true,
+      push: false,
+      frequency: 'daily'
+    },
+    language: 'en',
+    timezone: 'UTC',
+    twoFactorEnabled: false
+  };
 }
