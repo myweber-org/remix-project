@@ -1,55 +1,46 @@
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
-  notifications: {
-    email: boolean;
-    push: boolean;
-    frequency: 'instant' | 'daily' | 'weekly';
-  };
-  privacy: {
-    profileVisibility: 'public' | 'private' | 'friends';
-    searchIndexing: boolean;
-  };
+  language: string;
+  notificationsEnabled: boolean;
+  itemsPerPage: number;
 }
 
-function validatePreferences(prefs: UserPreferences): boolean {
+function validateUserPreferences(prefs: Partial<UserPreferences>): boolean {
   const validThemes = ['light', 'dark', 'auto'];
-  const validFrequencies = ['instant', 'daily', 'weekly'];
-  const validVisibilities = ['public', 'private', 'friends'];
-
-  if (!validThemes.includes(prefs.theme)) {
+  
+  if (prefs.theme && !validThemes.includes(prefs.theme)) {
     return false;
   }
-
-  if (!validFrequencies.includes(prefs.notifications.frequency)) {
+  
+  if (prefs.language && typeof prefs.language !== 'string') {
     return false;
   }
-
-  if (!validVisibilities.includes(prefs.privacy.profileVisibility)) {
+  
+  if (prefs.notificationsEnabled !== undefined && typeof prefs.notificationsEnabled !== 'boolean') {
     return false;
   }
-
-  if (typeof prefs.notifications.email !== 'boolean' || 
-      typeof prefs.notifications.push !== 'boolean' ||
-      typeof prefs.privacy.searchIndexing !== 'boolean') {
+  
+  if (prefs.itemsPerPage !== undefined && (typeof prefs.itemsPerPage !== 'number' || prefs.itemsPerPage < 1 || prefs.itemsPerPage > 100)) {
     return false;
   }
-
+  
   return true;
 }
 
-function getDefaultPreferences(): UserPreferences {
+function mergeUserPreferences(defaultPrefs: UserPreferences, userPrefs: Partial<UserPreferences>): UserPreferences {
+  if (!validateUserPreferences(userPrefs)) {
+    throw new Error('Invalid user preferences provided');
+  }
+  
   return {
-    theme: 'auto',
-    notifications: {
-      email: true,
-      push: false,
-      frequency: 'daily'
-    },
-    privacy: {
-      profileVisibility: 'friends',
-      searchIndexing: true
-    }
+    ...defaultPrefs,
+    ...userPrefs
   };
 }
 
-export { UserPreferences, validatePreferences, getDefaultPreferences };
+const defaultPreferences: UserPreferences = {
+  theme: 'auto',
+  language: 'en',
+  notificationsEnabled: true,
+  itemsPerPage: 20
+};
