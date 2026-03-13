@@ -60,4 +60,59 @@ function loadPreferences(): UserPreferences {
   }
 }
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: {
+    email: boolean;
+    push: boolean;
+    frequency: 'instant' | 'daily' | 'weekly';
+  };
+  privacy: {
+    profileVisibility: 'public' | 'private' | 'friends';
+    searchIndexing: boolean;
+  };
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  notifications: {
+    email: true,
+    push: false,
+    frequency: 'daily'
+  },
+  privacy: {
+    profileVisibility: 'private',
+    searchIndexing: false
+  }
+};
+
+function validatePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+  const validated = { ...DEFAULT_PREFERENCES, ...prefs };
+  
+  if (!['light', 'dark', 'auto'].includes(validated.theme)) {
+    validated.theme = DEFAULT_PREFERENCES.theme;
+  }
+  
+  if (!['instant', 'daily', 'weekly'].includes(validated.notifications.frequency)) {
+    validated.notifications.frequency = DEFAULT_PREFERENCES.notifications.frequency;
+  }
+  
+  if (!['public', 'private', 'friends'].includes(validated.privacy.profileVisibility)) {
+    validated.privacy.profileVisibility = DEFAULT_PREFERENCES.privacy.profileVisibility;
+  }
+  
+  return validated;
+}
+
+function mergePreferences(existing: UserPreferences, updates: Partial<UserPreferences>): UserPreferences {
+  const merged = {
+    ...existing,
+    ...updates,
+    notifications: { ...existing.notifications, ...updates.notifications },
+    privacy: { ...existing.privacy, ...updates.privacy }
+  };
+  
+  return validatePreferences(merged);
+}
+
+export { UserPreferences, DEFAULT_PREFERENCES, validatePreferences, mergePreferences };
