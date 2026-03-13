@@ -52,4 +52,46 @@ function loadPreferences(): UserPreferences {
   return DEFAULT_PREFERENCES;
 }
 
-export { UserPreferences, validatePreferences, savePreferences, loadPreferences };
+export { UserPreferences, validatePreferences, savePreferences, loadPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  itemsPerPage: number;
+}
+
+function validatePreferences(prefs: UserPreferences): boolean {
+  const validThemes = ['light', 'dark', 'auto'];
+  const minItemsPerPage = 5;
+  const maxItemsPerPage = 100;
+
+  if (!validThemes.includes(prefs.theme)) {
+    return false;
+  }
+
+  if (typeof prefs.notifications !== 'boolean') {
+    return false;
+  }
+
+  if (typeof prefs.language !== 'string' || prefs.language.length < 2) {
+    return false;
+  }
+
+  if (!Number.isInteger(prefs.itemsPerPage) || 
+      prefs.itemsPerPage < minItemsPerPage || 
+      prefs.itemsPerPage > maxItemsPerPage) {
+    return false;
+  }
+
+  return true;
+}
+
+function getDefaultPreferences(): UserPreferences {
+  return {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    itemsPerPage: 20
+  };
+}
+
+export { UserPreferences, validatePreferences, getDefaultPreferences };
