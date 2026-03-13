@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const UserProfileSchema = z.object({
+const userProfileSchema = z.object({
   id: z.string().uuid(),
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/),
   email: z.string().email(),
@@ -12,17 +12,21 @@ const UserProfileSchema = z.object({
   createdAt: z.date().default(() => new Date()),
 });
 
-type UserProfile = z.infer<typeof UserProfileSchema>;
+type UserProfile = z.infer<typeof userProfileSchema>;
 
-function validateUserProfile(input: unknown): UserProfile {
-  try {
-    return UserProfileSchema.parse(input);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error('Validation failed:', error.errors);
-    }
-    throw new Error('Invalid user profile data');
-  }
+export function validateUserProfile(data: unknown): UserProfile {
+  return userProfileSchema.parse(data);
 }
 
-export { UserProfileSchema, validateUserProfile, type UserProfile };
+export function safeValidateUserProfile(data: unknown) {
+  return userProfileSchema.safeParse(data);
+}
+
+export function createDefaultProfile(username: string, email: string): Partial<UserProfile> {
+  return {
+    username,
+    email,
+    preferences: { theme: 'auto', notifications: true },
+    createdAt: new Date(),
+  };
+}
