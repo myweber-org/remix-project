@@ -87,4 +87,47 @@ class UserPreferencesValidator {
   }
 }
 
-export { UserPreferencesValidator, PreferenceError, UserPreferences };
+export { UserPreferencesValidator, PreferenceError, UserPreferences };interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  notifications: boolean;
+  language: string;
+  timezone?: string;
+}
+
+class PreferenceValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PreferenceValidationError';
+  }
+}
+
+function validateUserPreferences(prefs: UserPreferences): void {
+  const validLanguages = ['en', 'es', 'fr', 'de', 'ja'];
+  
+  if (!prefs.theme || !['light', 'dark', 'auto'].includes(prefs.theme)) {
+    throw new PreferenceValidationError('Theme must be light, dark, or auto');
+  }
+  
+  if (typeof prefs.notifications !== 'boolean') {
+    throw new PreferenceValidationError('Notifications must be a boolean value');
+  }
+  
+  if (!prefs.language || !validLanguages.includes(prefs.language)) {
+    throw new PreferenceValidationError(`Language must be one of: ${validLanguages.join(', ')}`);
+  }
+  
+  if (prefs.timezone && !/^[A-Za-z_]+\/[A-Za-z_]+$/.test(prefs.timezone)) {
+    throw new PreferenceValidationError('Timezone must be in format Area/Location');
+  }
+}
+
+function createDefaultPreferences(): UserPreferences {
+  return {
+    theme: 'auto',
+    notifications: true,
+    language: 'en',
+    timezone: 'UTC'
+  };
+}
+
+export { UserPreferences, PreferenceValidationError, validateUserPreferences, createDefaultPreferences };
