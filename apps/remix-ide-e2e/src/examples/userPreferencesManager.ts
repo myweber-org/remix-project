@@ -139,4 +139,73 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark';
+  fontSize: number;
+  notificationsEnabled: boolean;
+  language: string;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'light',
+  fontSize: 14,
+  notificationsEnabled: true,
+  language: 'en'
+};
+
+class UserPreferencesManager {
+  private readonly storageKey = 'user_preferences_v1';
+
+  loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validateAndMerge(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences from storage:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  savePreferences(prefs: Partial<UserPreferences>): void {
+    try {
+      const current = this.loadPreferences();
+      const updated = { ...current, ...prefs };
+      const validated = this.validateAndMerge(updated);
+      localStorage.setItem(this.storageKey, JSON.stringify(validated));
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  }
+
+  resetToDefaults(): void {
+    try {
+      localStorage.removeItem(this.storageKey);
+    } catch (error) {
+      console.error('Failed to reset preferences:', error);
+    }
+  }
+
+  private validateAndMerge(partial: Partial<UserPreferences>): UserPreferences {
+    return {
+      theme: this.isValidTheme(partial.theme) ? partial.theme : DEFAULT_PREFERENCES.theme,
+      fontSize: typeof partial.fontSize === 'number' && partial.fontSize >= 10 && partial.fontSize <= 24
+        ? partial.fontSize
+        : DEFAULT_PREFERENCES.fontSize,
+      notificationsEnabled: typeof partial.notificationsEnabled === 'boolean'
+        ? partial.notificationsEnabled
+        : DEFAULT_PREFERENCES.notificationsEnabled,
+      language: typeof partial.language === 'string' && partial.language.length === 2
+        ? partial.language
+        : DEFAULT_PREFERENCES.language
+    };
+  }
+
+  private isValidTheme(theme: unknown): theme is 'light' | 'dark' {
+    return theme === 'light' || theme === 'dark';
+  }
+}
+
+export const preferencesManager = new UserPreferencesManager();
