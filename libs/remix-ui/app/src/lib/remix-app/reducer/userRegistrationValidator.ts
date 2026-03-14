@@ -1,38 +1,57 @@
 import { z } from 'zod';
 
-export const userRegistrationSchema = z.object({
-  username: z.string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(20, 'Username cannot exceed 20 characters')
-    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-  
-  email: z.string()
-    .email('Please provide a valid email address'),
-  
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  
-  age: z.number()
-    .int('Age must be an integer')
-    .min(18, 'You must be at least 18 years old')
-    .max(120, 'Please provide a valid age'),
-  
-  termsAccepted: z.boolean()
-    .refine(val => val === true, 'You must accept the terms and conditions')
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character');
+
+const userRegistrationSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: passwordSchema,
+  confirmPassword: z.string(),
+  username: z.string().min(3, 'Username must be at least 3 characters').max(30),
+  birthDate: z.string().refine((val) => {
+    const date = new Date(val);
+    const now = new Date();
+    const minAgeDate = new Date(now.getFullYear() - 13, now.getMonth(), now.getDate());
+    return date <= minAgeDate;
+  }, 'User must be at least 13 years old')
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword']
 });
 
 export type UserRegistrationData = z.infer<typeof userRegistrationSchema>;
 
-export function validateRegistrationInput(data: unknown): UserRegistrationData | { errors: string[] } {
+export function validateUserRegistration(data: unknown): { success: boolean; errors?: Record<string, string> } {
   const result = userRegistrationSchema.safeParse(data);
   
   if (!result.success) {
-    const errors = result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
-    return { errors };
+    const errors: Record<string, string> = {};
+    result.error.errors.forEach((err) => {
+      if (err.path.length > 0) {
+        errors[err.path[0]] = err.message;
+      }
+    });
+    return { success: false, errors };
   }
   
-  return result.data;
+  return { success: true };
+}
+
+export function getPasswordStrength(password: string): 'weak' | 'medium' | 'strong' {
+  if (password.length < 8) return 'weak';
+  
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  
+  const criteriaMet = [hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
+  
+  if (criteriaMet >= 4) return 'strong';
+  if (criteriaMet >= 3) return 'medium';
+  return 'weak';
 }
