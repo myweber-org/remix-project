@@ -166,4 +166,73 @@ class UserPreferencesManager {
   }
 }
 
-export const preferencesManager = new UserPreferencesManager();
+export const preferencesManager = new UserPreferencesManager();interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notificationsEnabled: boolean;
+  fontSize: number;
+}
+
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'auto',
+  language: 'en-US',
+  notificationsEnabled: true,
+  fontSize: 14
+};
+
+class UserPreferencesManager {
+  private static readonly STORAGE_KEY = 'user_preferences';
+
+  static loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return this.validateAndMerge(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load user preferences:', error);
+    }
+    return { ...DEFAULT_PREFERENCES };
+  }
+
+  static savePreferences(prefs: Partial<UserPreferences>): UserPreferences {
+    const current = this.loadPreferences();
+    const merged = { ...current, ...prefs };
+    const validated = this.validateAndMerge(merged);
+    
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validated));
+    return validated;
+  }
+
+  private static validateAndMerge(data: any): UserPreferences {
+    const result = { ...DEFAULT_PREFERENCES };
+    
+    if (data && typeof data === 'object') {
+      if (['light', 'dark', 'auto'].includes(data.theme)) {
+        result.theme = data.theme;
+      }
+      
+      if (typeof data.language === 'string') {
+        result.language = data.language;
+      }
+      
+      if (typeof data.notificationsEnabled === 'boolean') {
+        result.notificationsEnabled = data.notificationsEnabled;
+      }
+      
+      if (typeof data.fontSize === 'number' && data.fontSize >= 8 && data.fontSize <= 24) {
+        result.fontSize = data.fontSize;
+      }
+    }
+    
+    return result;
+  }
+
+  static resetToDefaults(): UserPreferences {
+    localStorage.removeItem(this.STORAGE_KEY);
+    return { ...DEFAULT_PREFERENCES };
+  }
+}
+
+export { UserPreferencesManager, type UserPreferences };
