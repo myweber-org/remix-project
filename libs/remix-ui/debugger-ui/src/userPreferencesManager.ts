@@ -166,4 +166,66 @@ class UserPreferencesManager {
   }
 }
 
-export const userPreferences = new UserPreferencesManager();
+export const userPreferences = new UserPreferencesManager();import { z } from 'zod';
+
+const UserPreferencesSchema = z.object({
+  theme: z.enum(['light', 'dark', 'auto']).default('auto'),
+  language: z.string().min(2).default('en'),
+  notificationsEnabled: z.boolean().default(true),
+  fontSize: z.number().min(8).max(72).default(16),
+  autoSaveInterval: z.number().min(0).max(300).default(30)
+});
+
+type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+
+const STORAGE_KEY = 'user_preferences';
+
+class UserPreferencesManager {
+  private preferences: UserPreferences;
+
+  constructor() {
+    this.preferences = this.loadPreferences();
+  }
+
+  private loadPreferences(): UserPreferences {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return UserPreferencesSchema.parse(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load preferences, using defaults:', error);
+    }
+    return UserPreferencesSchema.parse({});
+  }
+
+  private savePreferences(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.preferences));
+  }
+
+  getPreferences(): UserPreferences {
+    return { ...this.preferences };
+  }
+
+  updatePreferences(updates: Partial<UserPreferences>): void {
+    try {
+      const merged = { ...this.preferences, ...updates };
+      this.preferences = UserPreferencesSchema.parse(merged);
+      this.savePreferences();
+    } catch (error) {
+      throw new Error(`Invalid preferences update: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  resetToDefaults(): void {
+    this.preferences = UserPreferencesSchema.parse({});
+    this.savePreferences();
+  }
+
+  validatePreferences(prefs: unknown): UserPreferences {
+    return UserPreferencesSchema.parse(prefs);
+  }
+}
+
+export const userPreferencesManager = new UserPreferencesManager();
